@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akun Saya - TemanKosan</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f8f9fa;
+        }
+
+        /* Navigation */
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #00c851;
+            text-decoration: none;
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .btn-outline {
+            background: white;
+            color: #666;
+            border: 1px solid #ddd;
+        }
+
+        .btn-outline:hover {
+            background: #f8f9fa;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        /* Main Content */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .account-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 2rem;
+        }
+
+        /* Profile Sidebar */
+        .profile-sidebar {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            height: fit-content;
+            position: sticky;
+            top: 100px;
+        }
+
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #00c851;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 0 auto 1rem;
+        }
+
+        .profile-info {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .profile-name {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .profile-email {
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .profile-role {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .role-admin {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .role-member {
+            background: #e8f5e8;
+            color: #00c851;
+        }
+
+        .profile-join-date {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 1rem 2rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab.active {
+            color: #00c851;
+            border-bottom-color: #00c851;
+        }
+
+        .tab:hover {
+            background: #f8f9fa;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            padding: 2rem;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Profile Tab */
+        .profile-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group .value {
+            padding: 0.75rem;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            color: #666;
+        }
+
+        .btn-edit {
+            background: #00c851;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: fit-content;
+        }
+
+        .btn-edit:hover {
+            background: #00a844;
+        }
+
+        /* Booking History */
+        .booking-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .booking-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 1.5rem;
+            transition: box-shadow 0.3s;
+        }
+
+        .booking-item:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .booking-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+
+        .booking-title {
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+
+        .booking-location {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .booking-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #e8f5e8;
+            color: #00c851;
+        }
+
+        .status-completed {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .booking-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .booking-detail {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-label {
+            color: #666;
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .detail-value {
+            font-weight: 500;
+        }
+
+        .price-value {
+            color: #00c851;
+            font-weight: bold;
+        }
+
+        .booking-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-small {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .btn-small:hover {
+            background: #f8f9fa;
+        }
+
+        /* Favorites */
+        .favorites-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .favorite-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: box-shadow 0.3s;
+        }
+
+        .favorite-item:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .favorite-image {
+            height: 150px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .favorite-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .remove-favorite {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .remove-favorite:hover {
+            background: white;
+        }
+
+        .favorite-content {
+            padding: 1rem;
+        }
+
+        .favorite-title {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .favorite-location {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .favorite-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .favorite-price {
+            font-weight: bold;
+            color: #00c851;
+        }
+
+        .favorite-rating {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-view {
+            background: #00c851;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+        }
+
+        .btn-view:hover {
+            background: #00a844;
+        }
+
+        /* My Kos (Admin) */
+        .my-kos-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .btn-add {
+            background: #00c851;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-add:hover {
+            background: #00a844;
+        }
+
+        .kos-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .kos-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 1.5rem;
+            transition: box-shadow 0.3s;
+        }
+
+        .kos-item:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .kos-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+
+        .kos-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-edit-kos {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-edit-kos:hover {
+            background: #138496;
+        }
+
+        .btn-delete:hover {
+            background: #c82333;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .account-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .profile-form {
+                grid-template-columns: 1fr;
+            }
+
+            .booking-details {
+                grid-template-columns: 1fr;
+            }
+
+            .favorites-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tabs {
+                overflow-x: auto;
+            }
+
+            .tab {
+                white-space: nowrap;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">TemanKosan</a>
+            <div class="nav-actions">
+                <a href="index.html" class="btn btn-outline">Kembali ke Beranda</a>
+                <button class="btn btn-danger" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="account-layout">
+            <!-- Profile Sidebar -->
+            <div class="profile-sidebar">
+                <div class="profile-avatar" id="profileAvatar"></div>
+                <div class="profile-info">
+                    <div class="profile-name" id="profileName"></div>
+                    <div class="profile-email" id="profileEmail"></div>
+                    <div class="profile-role" id="profileRole"></div>
+                    <div class="profile-join-date" id="profileJoinDate"></div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- Tabs -->
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('profile')">👤 Profil</button>
+                    <button class="tab" onclick="switchTab('bookings')">📅 Booking</button>
+                    <button class="tab" onclick="switchTab('favorites')">❤️ Favorit</button>
+                    <button class="tab hidden" id="myKosTab" onclick="switchTab('my-kos')">🏠 Kos Saya</button>
+                </div>
+
+                <!-- Profile Tab -->
+                <div class="tab-content active" id="profileContent">
+                    <h2 class="section-title">👤 Informasi Profil</h2>
+                    <div class="profile-form">
+                        <div class="form-group">
+                            <label>Nama Lengkap</label>
+                            <div class="value" id="displayName"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <div class="value" id="displayEmail"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Role</label>
+                            <div class="value" id="displayRole"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Bergabung Sejak</label>
+                            <div class="value" id="displayJoinDate"></div>
+                        </div>
+                    </div>
+                    <button class="btn-edit" onclick="editProfile()">
+                        ⚙️ Edit Profil
+                    </button>
+                </div>
+
+                <!-- Bookings Tab -->
+                <div class="tab-content" id="bookingsContent">
+                    <h2 class="section-title">📅 Riwayat Booking</h2>
+                    <div class="booking-list" id="bookingList">
+                        <!-- Bookings will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Favorites Tab -->
+                <div class="tab-content" id="favoritesContent">
+                    <h2 class="section-title">❤️ Kos Favorit</h2>
+                    <div class="favorites-grid" id="favoritesList">
+                        <!-- Favorites will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- My Kos Tab (Admin only) -->
+                <div class="tab-content" id="myKosContent">
+                    <div class="my-kos-header">
+                        <h2 class="section-title">🏠 Kos yang Saya Kelola</h2>
+                        <a href="add-kos.html" class="btn-add">➕ Tambah Kos</a>
+                    </div>
+                    <div class="kos-list" id="myKosList">
+                        <!-- My kos will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        // Initialize page
+        function initializePage() {
+            currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+            
+            if (!currentUser) {
+                alert('Silakan login terlebih dahulu!');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            loadUserProfile();
+            loadBookings();
+            loadFavorites();
+            
+            if (currentUser.role === 'admin') {
+                document.getElementById('myKosTab').classList.remove('hidden');
+                loadMyKos();
+            }
+        }
+
+        // Load user profile
+        function loadUserProfile() {
+            document.getElementById('profileAvatar').textContent = currentUser.name.charAt(0).toUpperCase();
+            document.getElementById('profileName').textContent = currentUser.name;
+            document.getElementById('profileEmail').textContent = currentUser.email;
+            
+            const roleElement = document.getElementById('profileRole');
+            roleElement.textContent = currentUser.role === 'admin' ? 'Admin' : 'Member';
+            roleElement.className = `profile-role role-${currentUser.role}`;
+            
+            document.getElementById('profileJoinDate').textContent = `Bergabung sejak ${currentUser.joinDate}`;
+
+            // Display in form
+            document.getElementById('displayName').textContent = currentUser.name;
+            document.getElementById('displayEmail').textContent = currentUser.email;
+            document.getElementById('displayRole').textContent = currentUser.role === 'admin' ? 'Admin' : 'Member';
+            document.getElementById('displayJoinDate').textContent = currentUser.joinDate;
+        }
+
+        // Load bookings
+        function loadBookings() {
+            const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+            const userBookings = bookings.filter(booking => booking.email === currentUser.email);
+            const bookingList = document.getElementById('bookingList');
+
+            if (userBookings.length === 0) {
+                bookingList.innerHTML = `
+                    <div class="empty-state">
+                        <h3>Belum ada booking</h3>
+                        <p>Anda belum melakukan booking kos apapun</p>
+                    </div>
+                `;
+                return;
+            }
+
+            bookingList.innerHTML = '';
+            userBookings.forEach(booking => {
+                const bookingItem = document.createElement('div');
+                bookingItem.className = 'booking-item';
+                
+                const statusClass = `status-${booking.status}`;
+                const statusText = {
+                    'pending': 'Menunggu',
+                    'active': 'Aktif',
+                    'completed': 'Selesai'
+                }[booking.status] || booking.status;
+
+                bookingItem.innerHTML = `
+                    <div class="booking-header">
+                        <div>
+                            <div class="booking-title">${booking.kosName}</div>
+                            <div class="booking-location">📍 ${booking.kosName}</div>
+                        </div>
+                        <div class="booking-status ${statusClass}">${statusText}</div>
+                    </div>
+                    <div class="booking-details">
+                        <div class="booking-detail">
+                            <span class="detail-label">Check-in</span>
+                            <span class="detail-value">${new Date(booking.checkInDate).toLocaleDateString('id-ID')}</span>
+                        </div>
+                        <div class="booking-detail">
+                            <span class="detail-label">Durasi</span>
+                            <span class="detail-value">${booking.duration} bulan</span>
+                        </div>
+                        <div class="booking-detail">
+                            <span class="detail-label">Total</span>
+                            <span class="detail-value price-value">Rp ${booking.totalAmount.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div class="booking-detail">
+                            <span class="detail-label">Metode Bayar</span>
+                            <span class="detail-value">${booking.paymentMethod}</span>
+                        </div>
+                    </div>
+                    <div class="booking-actions">
+                        <button class="btn-small" onclick="viewBookingDetail(${booking.id})">Detail</button>
+                        ${booking.status === 'pending' ? '<button class="btn-small" onclick="cancelBooking(' + booking.id + ')">Batalkan</button>' : ''}
+                    </div>
+                `;
+                
+                bookingList.appendChild(bookingItem);
+            });
+        }
+
+        // Load favorites
+        function loadFavorites() {
+            const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+            const kosData = JSON.parse(localStorage.getItem('kosData') || '[]');
+            const favoritesList = document.getElementById('favoritesList');
+
+            if (favorites.length === 0) {
+                favoritesList.innerHTML = `
+                    <div class="empty-state">
+                        <h3>Belum ada favorit</h3>
+                        <p>Anda belum menambahkan kos favorit</p>
+                    </div>
+                `;
+                return;
+            }
+
+            favoritesList.innerHTML = '';
+            favorites.forEach(kosId => {
+                const kos = kosData.find(k => k.id === kosId);
+                if (!kos) return;
+
+                const favoriteItem = document.createElement('div');
+                favoriteItem.className = 'favorite-item';
+                
+                favoriteItem.innerHTML = `
+                    <div class="favorite-image">
+                        <img src="${kos.image}" alt="${kos.name}">
+                        <button class="remove-favorite" onclick="removeFavorite(${kos.id})">❌</button>
+                    </div>
+                    <div class="favorite-content">
+                        <div class="favorite-title">${kos.name}</div>
+                        <div class="favorite-location">📍 ${kos.location}</div>
+                        <div class="favorite-footer">
+                            <div>
+                                <div class="favorite-price">Rp ${kos.price.toLocaleString('id-ID')}/bulan</div>
+                                <div class="favorite-rating">⭐ ${kos.rating}</div>
+                            </div>
+                            <button class="btn-view" onclick="window.location.href='kos-detail.html?id=${kos.id}'">
+                                Lihat Detail
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                favoritesList.appendChild(favoriteItem);
+            });
+        }
+
+        // Load my kos (admin only)
+        function loadMyKos() {
+            // This would typically load kos owned by the current admin
+            const myKosList = document.getElementById('myKosList');
+            
+            // Sample data for demo
+            const myKos = [
+                {
+                    id: 1,
+                    name: "Kos Anggrek Modern",
+                    location: "Bandung, Jawa Barat",
+                    price: 1000000,
+                    status: "active",
+                    bookings: 5
+                },
+                {
+                    id: 2,
+                    name: "Kos Dahlia Premium",
+                    location: "Yogyakarta",
+                    price: 1500000,
+                    status: "pending",
+                    bookings: 0
+                }
+            ];
+
+            if (myKos.length === 0) {
+                myKosList.innerHTML = `
+                    <div class="empty-state">
+                        <h3>Belum ada kos</h3>
+                        <p>Anda belum menambahkan kos apapun</p>
+                    </div>
+                `;
+                return;
+            }
+
+            myKosList.innerHTML = '';
+            myKos.forEach(kos => {
+                const kosItem = document.createElement('div');
+                kosItem.className = 'kos-item';
+                
+                const statusClass = `status-${kos.status}`;
+                const statusText = {
+                    'active': 'Aktif',
+                    'pending': 'Menunggu Persetujuan',
+                    'inactive': 'Tidak Aktif'
+                }[kos.status] || kos.status;
+
+                kosItem.innerHTML = `
+                    <div class="kos-header">
+                        <div>
+                            <div class="booking-title">${kos.name}</div>
+                            <div class="booking-location">📍 ${kos.location}</div>
+                        </div>
+                        <div class="booking-status ${statusClass}">${statusText}</div>
+                    </div>
+                    <div class="booking-details">
+                        <div class="booking-detail">
+                            <span class="detail-label">Harga</span>
+                            <span class="detail-value price-value">Rp ${kos.price.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div class="booking-detail">
+                            <span class="detail-label">Booking</span>
+                            <span class="detail-value">${kos.bookings} orang</span>
+                        </div>
+                    </div>
+                    <div class="kos-actions">
+                        <button class="btn-small btn-edit-kos" onclick="editKos(${kos.id})">✏️ Edit</button>
+                        <button class="btn-small btn-delete" onclick="deleteKos(${kos.id})">🗑️ Hapus</button>
+                    </div>
+                `;
+                
+                myKosList.appendChild(kosItem);
+            });
+        }
+
+        // Switch tabs
+        function switchTab(tabName) {
+            // Remove active class from all tabs and contents
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Add active class to selected tab and content
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Content').classList.add('active');
+        }
+
+        // Remove favorite
+        function removeFavorite(kosId) {
+            let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+            favorites = favorites.filter(id => id !== kosId);
+            localStorage.setItem('favorites', JSON.stringify(favorites));
+            loadFavorites();
+        }
+
+        // Edit profile
+        function editProfile() {
+            alert('Fitur edit profil akan segera hadir!');
+        }
+
+        // View booking detail
+        function viewBookingDetail(bookingId) {
+            alert(`Detail booking ID: ${bookingId}`);
+        }
+
+        // Cancel booking
+        function cancelBooking(bookingId) {
+            if (confirm('Apakah Anda yakin ingin membatalkan booking ini?')) {
+                let bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+                const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+                if (bookingIndex !== -1) {
+                    bookings[bookingIndex].status = 'cancelled';
+                    localStorage.setItem('bookings', JSON.stringify(bookings));
+                    loadBookings();
+                }
+            }
+        }
+
+        // Edit kos
+        function editKos(kosId) {
+            window.location.href = `add-kos.html?edit=${kosId}`;
+        }
+
+        // Delete kos
+        function deleteKos(kosId) {
+            if (confirm('Apakah Anda yakin ingin menghapus kos ini?')) {
+                alert(`Kos ID ${kosId} berhasil dihapus!`);
+                loadMyKos();
+            }
+        }
+
+        // Logout
+        function logout() {
+            if (confirm('Apakah Anda yakin ingin logout?')) {
+                localStorage.removeItem('currentUser');
+                window.location.href = 'login.html';
+            }
+        }
+
+        // Initialize page when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initializePage);
+    </script>
+</body>
+</html>
