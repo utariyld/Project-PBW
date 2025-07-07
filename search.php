@@ -84,6 +84,7 @@ switch ($sortBy) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pencarian Kos - TemanKosan</title>
+    <link rel="stylesheet" href="assets/css/live-search.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
         
@@ -672,11 +673,14 @@ switch ($sortBy) {
                 <!-- Search Filters -->
                 <div class="search-filters">
                     <form method="GET" action="search.php" id="searchForm">
-                        <!-- Location Filter -->
+                        <!-- Location Filter with Live Search -->
                         <div class="filter-section">
                             <h3 class="filter-title">📍 Lokasi</h3>
                             <div class="form-group">
-                                <input type="text" name="location" value="<?php echo htmlspecialchars($searchLocation); ?>" placeholder="Masukkan kota atau daerah...">
+                                <div class="live-search-wrapper">
+                                    <input type="text" name="location" value="<?php echo htmlspecialchars($searchLocation); ?>" placeholder="Masukkan kota atau daerah..." data-live-search="#liveSearchResults">
+                                    <div id="liveSearchResults" class="live-search-results"></div>
+                                </div>
                             </div>
                         </div>
 
@@ -826,6 +830,7 @@ switch ($sortBy) {
 
     <!-- Panggil file eksternal JavaScript -->
 <script src="php11F_suggestion.js"></script>
+<script src="assets/js/live-search.js"></script>
 
 <script>
     // Toggle favorite function
