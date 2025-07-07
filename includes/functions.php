@@ -46,50 +46,139 @@ function authenticate_user($email, $password) {
 
 function get_search_kos() {
     $pdo = getConnection();
-    if (!$pdo) return [];
+    
+    // Try to get data from database first
+    if ($pdo) {
+        try {
+            $query = "
+                SELECT 
+                    k.id,
+                    k.name,
+                    k.address,
+                    k.price,
+                    k.type,
+                    k.is_available,
+                    k.room_size,
+                    k.created_at,
+                    GROUP_CONCAT(DISTINCT f.name) AS facilities,
+                    CONCAT(l.city, ', ', l.district) AS location,
+                    ki.image_url
+                FROM kos k
+                LEFT JOIN kos_facilities kf ON k.id = kf.kos_id
+                LEFT JOIN facilities f ON kf.facility_id = f.id
+                LEFT JOIN locations l ON k.location_id = l.id
+                LEFT JOIN kos_images ki ON k.id = ki.kos_id AND ki.is_primary = 1
+                WHERE k.status = 'published' AND k.is_available = 1
+                GROUP BY k.id
+                ORDER BY k.is_featured DESC, k.created_at DESC
+            ";
 
-    $query = "
-        SELECT 
-            k.id,
-            k.name,
-            k.address,
-            k.price,
-            k.type,
-            k.is_available,
-            k.room_size,
-            k.created_at,
-            GROUP_CONCAT(DISTINCT f.name) AS facilities,
-            CONCAT(l.city, ', ', l.district) AS location,
-            ki.image_url
-        FROM kos k
-        LEFT JOIN kos_facilities kf ON k.id = kf.kos_id
-        LEFT JOIN facilities f ON kf.facility_id = f.id
-        LEFT JOIN locations l ON k.location_id = l.id
-        LEFT JOIN kos_images ki ON k.id = ki.kos_id
-        GROUP BY k.id
-    ";
+            $stmt = $pdo->prepare($query);
+            $stmt->execute();
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $stmt = $pdo->prepare($query);
-    $stmt->execute();
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    return array_map(function($row) {
-        return [
-            'id' => (int)$row['id'],
-            'name' => $row['name'],
-            'location' => $row['location'],
-            'address' => $row['address'],
-            'price' => (int)$row['price'],
-            'rating' => rand(4, 5), // Dummy rating
-            'reviewCount' => rand(50, 200), // Dummy review count
-            'image' => $row['image_url'] ?? 'https://via.placeholder.com/400x300',
-            'facilities' => explode(',', $row['facilities'] ?? ''),
-            'type' => $row['type'],
-            'is_available' => (bool)$row['is_available'],
-            'room_size' => $row['room_size'],
-            'created_at' => $row['created_at']
-        ];
-    }, $rows);
+            if (!empty($rows)) {
+                return array_map(function($row) {
+                    return [
+                        'id' => (int)$row['id'],
+                        'name' => $row['name'],
+                        'location' => $row['location'] ?? 'Jakarta',
+                        'address' => $row['address'],
+                        'price' => (int)$row['price'],
+                        'rating' => rand(4, 5), // Dummy rating for demo
+                        'reviewCount' => rand(50, 200), // Dummy review count for demo
+                        'image' => $row['image_url'] ?? 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop',
+                        'facilities' => $row['facilities'] ? explode(',', $row['facilities']) : [],
+                        'type' => $row['type'],
+                        'is_available' => (bool)$row['is_available'],
+                        'room_size' => $row['room_size'] ?? '3x4 meter',
+                        'created_at' => $row['created_at']
+                    ];
+                }, $rows);
+            }
+        } catch (PDOException $e) {
+            error_log("Database error in get_search_kos: " . $e->getMessage());
+        }
+    }
+    
+    // Fallback to dummy data if database is not available or empty
+    return [
+        [
+            'id' => 1,
+            'name' => 'Kos Melati Putih Jakarta Pusat',
+            'location' => 'Jakarta Pusat, Menteng',
+            'address' => 'Jl. Menteng Raya No. 45, Menteng, Jakarta Pusat',
+            'price' => 2500000,
+            'rating' => 4.8,
+            'reviewCount' => 156,
+            'image' => 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop',
+            'facilities' => ['WiFi', 'AC', 'Kamar Mandi Dalam', 'Parkir Motor', 'Security 24 Jam', 'Dekat Kampus'],
+            'type' => 'campur',
+            'is_available' => true,
+            'room_size' => '3x4 meter',
+            'created_at' => date('Y-m-d H:i:s')
+        ],
+        [
+            'id' => 2,
+            'name' => 'Kos Mawar Indah Tanah Abang',
+            'location' => 'Jakarta Pusat, Tanah Abang',
+            'address' => 'Jl. Bendungan Hilir No. 12, Tanah Abang, Jakarta Pusat',
+            'price' => 2200000,
+            'rating' => 4.5,
+            'reviewCount' => 89,
+            'image' => 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop',
+            'facilities' => ['WiFi', 'AC', 'Kamar Mandi Luar', 'Parkir Motor', 'CCTV', 'Dekat Stasiun'],
+            'type' => 'putri',
+            'is_available' => true,
+            'room_size' => '3x3 meter',
+            'created_at' => date('Y-m-d H:i:s')
+        ],
+        [
+            'id' => 3,
+            'name' => 'Kos Anggrek Residence Senayan',
+            'location' => 'Jakarta Selatan, Senayan',
+            'address' => 'Jl. Senayan Raya No. 88, Senayan, Jakarta Selatan',
+            'price' => 3500000,
+            'rating' => 4.9,
+            'reviewCount' => 234,
+            'image' => 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop',
+            'facilities' => ['WiFi', 'AC', 'Kamar Mandi Dalam', 'Parkir Mobil', 'Dapur', 'Kulkas', 'Security 24 Jam', 'Dekat Mall'],
+            'type' => 'putra',
+            'is_available' => true,
+            'room_size' => '4x4 meter',
+            'created_at' => date('Y-m-d H:i:s')
+        ],
+        [
+            'id' => 4,
+            'name' => 'Kos Dahlia Residence Kemang',
+            'location' => 'Jakarta Selatan, Kemang',
+            'address' => 'Jl. Kemang Raya No. 67, Kemang, Jakarta Selatan',
+            'price' => 2800000,
+            'rating' => 4.6,
+            'reviewCount' => 112,
+            'image' => 'https://images.unsplash.com/photo-1631889993959-41b4e9c6e2c4?w=400&h=300&fit=crop',
+            'facilities' => ['WiFi', 'AC', 'Kamar Mandi Dalam', 'Parkir Motor', 'Laundry', 'Dekat Kampus'],
+            'type' => 'campur',
+            'is_available' => true,
+            'room_size' => '3x4 meter',
+            'created_at' => date('Y-m-d H:i:s')
+        ],
+        [
+            'id' => 5,
+            'name' => 'Kos Sakura House Pancoran',
+            'location' => 'Jakarta Selatan, Pancoran',
+            'address' => 'Jl. Pancoran Barat No. 23, Pancoran, Jakarta Selatan',
+            'price' => 1950000,
+            'rating' => 4.3,
+            'reviewCount' => 76,
+            'image' => 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=400&h=300&fit=crop',
+            'facilities' => ['WiFi', 'Kamar Mandi Luar', 'Parkir Motor', 'Dapur', 'Dekat Halte'],
+            'type' => 'putri',
+            'is_available' => true,
+            'room_size' => '3x3 meter',
+            'created_at' => date('Y-m-d H:i:s')
+        ]
+    ];
 }
 
 function search_kos($lokasi, $minHarga, $maxHarga, $limit, $offset) {
