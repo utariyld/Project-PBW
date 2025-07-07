@@ -1022,6 +1022,8 @@ if (!empty($searchLocation)) {
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            position: relative;
+            z-index: 10;
         }
 
         .btn-booking:hover {
@@ -1602,9 +1604,10 @@ if (!empty($searchLocation)) {
                                     Rp <?php echo number_format($kos['price'], 0, ',', '.'); ?>
                                     <span>/bulan</span>
                                 </div>
-                                <a href="booking.php?id=<?php echo $kos['id']; ?>" class="btn-booking" onclick="event.stopPropagation();">
+                                <a href="booking.php?id=<?php echo $kos['id']; ?>" class="btn-booking">
                                     <i class="fas fa-calendar-plus"></i> Booking
                                 </a>
+
                             </div>
                         </div>
                     </div>

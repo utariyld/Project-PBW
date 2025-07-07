@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'models/Kos.php';
+require_once 'includes/functions.php';
 
 $kosModel = new Kos();
 
@@ -21,98 +22,7 @@ $kosType = isset($_GET['type']) ? $_GET['type'] : '';
 $sortBy = isset($_GET['sort']) ? $_GET['sort'] : 'newest';
 
 // Sample data with more detailed facilities
-$kosData = [
-    [
-        'id' => 1,
-        'name' => 'Kos Melati Indah',
-        'location' => 'Depok, Jawa Barat',
-        'address' => 'Jl. Margonda Raya No. 123, Depok',
-        'price' => 1200000,
-        'rating' => 4.5,
-        'reviewCount' => 128,
-        'image' => 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop',
-        'facilities' => ['WiFi', 'AC', 'Kamar Mandi Dalam', 'Parkir Motor', 'Security 24 Jam', 'Dekat Kampus', 'Warung Makan'],
-        'type' => 'putra-putri',
-        'available' => true,
-        'room_size' => '3x4 meter',
-        'created_at' => '2024-01-15'
-    ],
-    [
-        'id' => 2,
-        'name' => 'Kos Mawar Residence',
-        'location' => 'Jakarta Selatan',
-        'address' => 'Jl. Kemang Raya No. 456, Jakarta Selatan',
-        'price' => 1800000,
-        'rating' => 4.8,
-        'reviewCount' => 95,
-        'image' => 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop',
-        'facilities' => ['WiFi', 'AC', 'Dapur', 'Laundry', 'Kulkas', 'Parkir Mobil', 'CCTV', 'Dekat Mall'],
-        'type' => 'putri',
-        'available' => true,
-        'room_size' => '4x4 meter',
-        'created_at' => '2024-01-20'
-    ],
-    [
-        'id' => 3,
-        'name' => 'Kos Anggrek Modern',
-        'location' => 'Bandung, Jawa Barat',
-        'address' => 'Jl. Dago No. 789, Bandung',
-        'price' => 1000000,
-        'rating' => 4.3,
-        'reviewCount' => 67,
-        'image' => 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=400&h=300&fit=crop',
-        'facilities' => ['WiFi', 'Kamar Mandi Dalam', 'Parkir Motor', 'Dekat Stasiun', 'Minimarket', 'ATM'],
-        'type' => 'putra',
-        'available' => true,
-        'room_size' => '3x3 meter',
-        'created_at' => '2024-01-10'
-    ],
-    [
-        'id' => 4,
-        'name' => 'Kos Dahlia Premium',
-        'location' => 'Yogyakarta',
-        'address' => 'Jl. Malioboro No. 321, Yogyakarta',
-        'price' => 1500000,
-        'rating' => 4.7,
-        'reviewCount' => 112,
-        'image' => 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop',
-        'facilities' => ['WiFi', 'AC', 'Dapur', 'Security 24 Jam', 'Akses 24 Jam', 'Dekat Kampus', 'Masjid', 'Apotek'],
-        'type' => 'putra-putri',
-        'available' => true,
-        'room_size' => '4x5 meter',
-        'created_at' => '2024-01-25'
-    ],
-    [
-        'id' => 5,
-        'name' => 'Kos Tulip Executive',
-        'location' => 'Surabaya, Jawa Timur',
-        'address' => 'Jl. Gubeng No. 654, Surabaya',
-        'price' => 2200000,
-        'rating' => 4.9,
-        'reviewCount' => 203,
-        'image' => 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop',
-        'facilities' => ['WiFi', 'AC', 'Kamar Mandi Dalam', 'Dapur', 'Kulkas', 'Laundry', 'Parkir Mobil', 'Security 24 Jam', 'CCTV', 'Dekat Mall', 'Rumah Sakit'],
-        'type' => 'putri',
-        'available' => true,
-        'room_size' => '4x6 meter',
-        'created_at' => '2024-02-01'
-    ],
-    [
-        'id' => 6,
-        'name' => 'Kos Sakura Minimalis',
-        'location' => 'Malang, Jawa Timur',
-        'address' => 'Jl. Ijen No. 987, Malang',
-        'price' => 800000,
-        'rating' => 4.2,
-        'reviewCount' => 45,
-        'image' => 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&h=300&fit=crop',
-        'facilities' => ['WiFi', 'Kamar Mandi Luar', 'Parkir Motor', 'Dekat Kampus', 'Warung Makan', 'Minimarket'],
-        'type' => 'putra',
-        'available' => true,
-        'room_size' => '3x3 meter',
-        'created_at' => '2024-01-05'
-    ]
-];
+$kosData = get_search_kos();
 
 // Filter the data based on search criteria
 $filteredKos = $kosData;
