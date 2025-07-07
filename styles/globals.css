@@ -2,13 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Enhanced Pink-Green Color Theme for TemanKosan */
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Poppins', Arial, Helvetica, sans-serif;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  
+  /* Theme Colors */
+  .bg-primary-pink {
+    background: linear-gradient(135deg, #ff69b4, #ff1493);
+  }
+  
+  .bg-primary-green {
+    background: linear-gradient(135deg, #00c851, #00a844);
+  }
+  
+  .bg-theme-gradient {
+    background: linear-gradient(135deg, #ff69b4, #00c851);
+  }
+  
+  .text-primary-pink {
+    background: linear-gradient(135deg, #ff69b4, #ff1493);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .text-primary-green {
+    background: linear-gradient(135deg, #00c851, #00a844);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .border-theme {
+    border: 2px solid;
+    border-image: linear-gradient(135deg, #ff69b4, #00c851) 1;
+  }
+  
+  .shadow-theme {
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+  }
+  
+  .shadow-theme-hover {
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+  }
+  
+  .shadow-pink {
+    box-shadow: 0 8px 25px rgba(255, 105, 180, 0.3);
+  }
+  
+  .shadow-green {
+    box-shadow: 0 8px 25px rgba(0, 200, 81, 0.3);
   }
 }
 
