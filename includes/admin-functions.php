@@ -5,8 +5,31 @@ require_once(__DIR__ . '/../config/database.php');
 // Admin authentication check
 function require_admin() {
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
-        header('Location: ../kosan/login.php');
+        header('Location: ../login.php');
         exit;
+    }
+}
+
+// Log admin activity
+function log_admin_activity($admin_id, $action, $description = '') {
+    $pdo = get_db_connection();
+    if (!$pdo) return false;
+    
+    try {
+        $sql = "INSERT INTO user_activities (user_id, action, description, ip_address, user_agent, created_at) 
+                VALUES (?, ?, ?, ?, ?, NOW())";
+        
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute([
+            $admin_id,
+            $action,
+            $description,
+            $_SERVER['REMOTE_ADDR'] ?? '',
+            $_SERVER['HTTP_USER_AGENT'] ?? ''
+        ]);
+    } catch (PDOException $e) {
+        error_log("Error logging admin activity: " . $e->getMessage());
+        return false;
     }
 }
 
@@ -110,7 +133,7 @@ function get_recent_kos($limit = 10) {
 
 // Get all kos with pagination
 function get_all_kos_admin($page = 1, $limit = 20, $search = '', $status = '') {
-    $pdo = getConnection(); // Perubahan di sini: dari get_db_connection() menjadi getConnection()
+    $pdo = get_db_connection();
     if (!$pdo) return ['data' => [], 'total' => 0];
     
     try {
@@ -247,7 +270,7 @@ function get_all_bookings_admin($page = 1, $limit = 20, $search = '', $status = 
         $params = [];
         
         if (!empty($search)) {
-            $whereClause .= " AND (b.booking_code LIKE ? OR u.name LIKE ? OR k.nama LIKE ?)";
+            $whereClause .= " AND (b.booking_code LIKE ? OR u.name LIKE ? OR k.name LIKE ?)";
             $searchTerm = "%{$search}%";
             $params[] = $searchTerm;
             $params[] = $searchTerm;
@@ -274,7 +297,7 @@ function get_all_bookings_admin($page = 1, $limit = 20, $search = '', $status = 
                     b.*,
                     u.name as user_name,
                     u.email as user_email,
-                    k.nama as kos_name
+                    k.name as kos_name
                 FROM bookings b
                 JOIN users u ON b.user_id = u.id
                 JOIN kos k ON b.kos_id = k.id
@@ -316,11 +339,14 @@ function update_kos_status($kosId, $status) {
 }
 
 // Update user status
-function update_user_status($userId, $isActive) {
+function update_user_status($userId, $status) {
     $pdo = get_db_connection();
     if (!$pdo) return false;
     
     try {
+        // Convert status to boolean for is_active field
+        $isActive = ($status === 'active') ? 1 : 0;
+        
         $sql = "UPDATE users SET is_active = ?, updated_at = NOW() WHERE id = ?";
         $stmt = $pdo->prepare($sql);
         return $stmt->execute([$isActive, $userId]);
@@ -347,7 +373,7 @@ function delete_kos($kosId) {
         
         if ($activeBookings > 0) {
             $pdo->rollBack();
-            return ['success' => false, 'message' => 'Tidak dapat menghapus kos yang memiliki booking aktif'];
+            return false;
         }
         
         // Delete kos
@@ -356,12 +382,12 @@ function delete_kos($kosId) {
         $result = $stmt->execute([$kosId]);
         
         $pdo->commit();
-        return ['success' => $result, 'message' => $result ? 'Kos berhasil dihapus' : 'Gagal menghapus kos'];
+        return $result;
         
     } catch (PDOException $e) {
         $pdo->rollBack();
         error_log("Error deleting kos: " . $e->getMessage());
-        return ['success' => false, 'message' => 'Terjadi kesalahan sistem'];
+        return false;
     }
 }
 
@@ -381,7 +407,18 @@ function delete_user($userId) {
         
         if ($activeBookings > 0) {
             $pdo->rollBack();
-            return ['success' => false, 'message' => 'Tidak dapat menghapus user yang memiliki booking aktif'];
+            return false;
+        }
+        
+        // Check if user is admin (prevent deleting admins)
+        $userCheck = "SELECT role FROM users WHERE id = ?";
+        $userStmt = $pdo->prepare($userCheck);
+        $userStmt->execute([$userId]);
+        $user = $userStmt->fetch();
+        
+        if ($user && $user['role'] === 'admin') {
+            $pdo->rollBack();
+            return false;
         }
         
         // Delete user
@@ -390,12 +427,12 @@ function delete_user($userId) {
         $result = $stmt->execute([$userId]);
         
         $pdo->commit();
-        return ['success' => $result, 'message' => $result ? 'User berhasil dihapus' : 'Gagal menghapus user'];
+        return $result;
         
     } catch (PDOException $e) {
         $pdo->rollBack();
         error_log("Error deleting user: " . $e->getMessage());
-        return ['success' => false, 'message' => 'Terjadi kesalahan sistem'];
+        return false;
     }
 }
 
