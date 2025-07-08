@@ -41,12 +41,10 @@ try {
             k.type,
             k.room_size,
             COALESCE(l.city, k.address) AS location,
-            COALESCE(ki.image_url, 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop') as image_url,
             COALESCE(AVG(r.rating), 4.5) as avg_rating,
             COUNT(DISTINCT r.id) as review_count
         FROM kos k
         LEFT JOIN locations l ON k.location_id = l.id
-        LEFT JOIN kos_images ki ON k.id = ki.kos_id AND ki.is_primary = 1
         LEFT JOIN reviews r ON k.id = r.kos_id
         WHERE k.status = 'published' 
         AND k.is_available = 1
@@ -56,7 +54,7 @@ try {
             OR l.city LIKE ? 
             OR l.district LIKE ?
         )
-        GROUP BY k.id, k.name, k.address, k.price, k.type, k.room_size, l.city, l.district, ki.image_url
+        GROUP BY k.id, k.name, k.address, k.price, k.type, k.room_size, l.city, l.district
         ORDER BY 
             CASE 
                 WHEN k.name LIKE ? THEN 1
@@ -92,7 +90,6 @@ try {
             'formatted_price' => 'Rp ' . number_format($row['price'], 0, ',', '.'),
             'type' => ucfirst(str_replace('-', '/', $row['type'])),
             'room_size' => $row['room_size'] ?? 'N/A',
-            'image' => $row['image_url'],
             'rating' => round((float)$row['avg_rating'], 1),
             'review_count' => (int)$row['review_count']
         ];

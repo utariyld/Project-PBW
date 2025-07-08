@@ -151,26 +151,6 @@
     border-bottom: none;
 }
 
-.result-image {
-    position: relative;
-    width: 80px;
-    height: 60px;
-    border-radius: 10px;
-    overflow: hidden;
-    flex-shrink: 0;
-}
-
-.result-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.3s ease;
-}
-
-.search-result-item:hover .result-image img {
-    transform: scale(1.1);
-}
-
 .result-badge {
     position: absolute;
     top: 4px;
@@ -321,11 +301,6 @@
         gap: 0.8rem;
     }
 
-    .result-image {
-        width: 100%;
-        height: 120px;
-    }
-
     .result-content {
         width: 100%;
     }
@@ -375,7 +350,6 @@
 @media (prefers-reduced-motion: reduce) {
     .live-search-results,
     .search-result-item,
-    .result-image img,
     .btn-view,
     .view-all-btn {
         transition: none;

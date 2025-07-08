@@ -198,19 +198,10 @@ class LiveSearch {
         resultItem.setAttribute('data-index', index);
 
         resultItem.innerHTML = `
-            <div class="result-image">
-                <img src="${item.image}" alt="${item.name}" loading="lazy">
-                <div class="result-badge">${item.type}</div>
-            </div>
             <div class="result-content">
                 <h4 class="result-title">${this.highlightText(item.name)}</h4>
                 <div class="result-location">📍 ${item.location}</div>
                 <div class="result-price">${item.formatted_price}/bulan</div>
-                <div class="result-rating">
-                    <span class="stars">⭐</span>
-                    <span>${item.rating}</span>
-                    <span>(${item.review_count} ulasan)</span>
-                </div>
             </div>
             <div class="result-actions">
                 <button class="btn-view" onclick="window.location.href='kos-detail.php?id=${item.id}'">

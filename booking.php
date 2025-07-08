@@ -5,17 +5,24 @@ require_once 'includes/functions.php';
 
 // Check if user is logged in
 if (!isset($_SESSION['user'])) {
-    header('Location: login.php');
+    $redirect_url = urlencode($_SERVER['REQUEST_URI']);
+    header("Location: login.php?redirect=$redirect_url");
     exit;
 }
 
 // Get kos ID from URL
 $kosId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
+if (!$kosId) {
+    header('Location: index.php');
+    exit;
+}
+
 // Get kos data from database
 $kos = get_kos_by_id($kosId);
 
 if (!$kos) {
+    $_SESSION['error'] = 'Kos tidak ditemukan atau tidak tersedia.';
     header('Location: index.php');
     exit;
 }
@@ -25,106 +32,101 @@ $error = '';
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Verify CSRF token
-    if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
-        $error = 'Token keamanan tidak valid. Silakan coba lagi.';
+    // Get form data
+    $fullName = sanitize_input($_POST['full_name'] ?? '');
+    $email = sanitize_input($_POST['email'] ?? '');
+    $phone = sanitize_input($_POST['phone'] ?? '');
+    $checkInDate = $_POST['check_in_date'] ?? '';
+    $duration = (int)($_POST['duration'] ?? 1);
+    $notes = sanitize_input($_POST['notes'] ?? '');
+    $paymentMethod = $_POST['payment_method'] ?? '';
+    
+    // Validation
+    $errors = [];
+    
+    if (empty($fullName) || strlen($fullName) < 2) {
+        $errors[] = 'Nama lengkap harus diisi minimal 2 karakter';
+    }
+    
+    if (empty($email) || !validate_email($email)) {
+        $errors[] = 'Email tidak valid';
+    }
+    
+    if (empty($phone) || !validate_phone($phone)) {
+        $errors[] = 'Nomor telepon tidak valid (gunakan format: 08xxxxxxxxxx)';
+    }
+    
+    if (empty($checkInDate)) {
+        $errors[] = 'Tanggal check-in harus diisi';
+    } elseif (strtotime($checkInDate) <= time()) {
+        $errors[] = 'Tanggal check-in harus minimal besok';
+    }
+    
+    if ($duration < 1 || $duration > 12) {
+        $errors[] = 'Durasi sewa harus antara 1-12 bulan';
+    }
+    
+    if (empty($paymentMethod)) {
+        $errors[] = 'Metode pembayaran harus dipilih';
+    }
+    
+    if (!empty($errors)) {
+        $error = implode('<br>', $errors);
     } else {
-        $fullName = sanitize_input($_POST['full_name'] ?? '');
-        $email = sanitize_input($_POST['email'] ?? '');
-        $phone = sanitize_input($_POST['phone'] ?? '');
-        $checkInDate = $_POST['check_in_date'] ?? '';
-        $duration = (int)($_POST['duration'] ?? 1);
-        $notes = sanitize_input($_POST['notes'] ?? '');
-        $paymentMethod = $_POST['payment_method'] ?? '';
+        // Calculate total
+        $subtotal = $kos['price'] * $duration;
+        $adminFee = 50000; // Fixed admin fee
+        $total = $subtotal + $adminFee;
         
-        // Validation
-        $errors = [];
+        // Calculate check-out date
+        $checkOutDate = date('Y-m-d', strtotime($checkInDate . " +{$duration} months"));
         
-        if (empty($fullName) || strlen($fullName) < 2) {
-            $errors[] = 'Nama lengkap harus diisi minimal 2 karakter';
-        }
+        // Prepare booking data
+        $bookingData = [
+            'user_id' => $_SESSION['user']['id'],
+            'kos_id' => $kosId,
+            'full_name' => $fullName,
+            'email' => $email,
+            'phone' => $phone,
+            'check_in_date' => $checkInDate,
+            'check_out_date' => $checkOutDate,
+            'duration_months' => $duration,
+            'total_price' => $total,
+            'admin_fee' => $adminFee,
+            'payment_method' => $paymentMethod,
+            'notes' => $notes
+        ];
         
-        if (empty($email) || !validate_email($email)) {
-            $errors[] = 'Email tidak valid';
-        }
+        // Save booking to database
+        $result = create_booking($bookingData);
         
-        if (empty($phone) || !validate_phone($phone)) {
-            $errors[] = 'Nomor telepon tidak valid';
-        }
-        
-        if (empty($checkInDate)) {
-            $errors[] = 'Tanggal check-in harus diisi';
-        } elseif (strtotime($checkInDate) <= time()) {
-            $errors[] = 'Tanggal check-in harus minimal besok';
-        }
-        
-        if ($duration < 1 || $duration > 12) {
-            $errors[] = 'Durasi sewa harus antara 1-12 bulan';
-        }
-        
-        if (empty($paymentMethod)) {
-            $errors[] = 'Metode pembayaran harus dipilih';
-        }
-        
-        if (!empty($errors)) {
-            $error = implode('<br>', $errors);
+        if ($result['success']) {
+            // Log booking activity
+            log_activity($_SESSION['user']['id'], 'booking_created', 
+                "Booking created: {$result['booking_code']} for kos: {$kos['name']}");
+            
+            // Store booking data in session for payment page
+            $_SESSION['booking_data'] = array_merge($bookingData, [
+                'booking_id' => $result['booking_id'],
+                'booking_code' => $result['booking_code'],
+                'kos_name' => $kos['name'],
+                'kos_location' => ($kos['city'] ?? '') . ', ' . ($kos['district'] ?? ''),
+                'subtotal' => $subtotal
+            ]);
+            
+            // Set success message
+            $_SESSION['success'] = 'Booking berhasil dibuat! Silakan lanjutkan pembayaran.';
+            
+            // Redirect to payment page
+            header("Location: payment.php?booking_id={$result['booking_id']}&code={$result['booking_code']}");
+            exit;
         } else {
-            // Calculate total
-            $subtotal = $kos['price'] * $duration;
-            $adminFee = 50000;
-            $total = $subtotal + $adminFee;
-            
-            // Prepare booking data
-            $bookingData = [
-                'user_id' => $_SESSION['user']['id'],
-                'kos_id' => $kosId,
-                'full_name' => $fullName,
-                'email' => $email,
-                'phone' => $phone,
-                'check_in_date' => $checkInDate,
-                'duration_months' => $duration,
-                'total_price' => $total,
-                'admin_fee' => $adminFee,
-                'payment_method' => $paymentMethod,
-                'notes' => $notes
-            ];
-            
-            // Save booking to database
-            $result = create_booking($bookingData);
-            
-            if ($result['success']) {
-                // Log booking activity
-                log_activity($_SESSION['user']['id'], 'booking_created', 
-                    "Booking created: {$result['booking_code']} for kos: {$kos['name']}");
-                
-                // Store booking data in session for payment page
-                $_SESSION['booking_data'] = array_merge($bookingData, [
-                    'booking_id' => $result['booking_id'],
-                    'booking_code' => $result['booking_code'],
-                    'kos_name' => $kos['name'],
-                    'kos_location' => $kos['city'] . ', ' . $kos['district'],
-                    'subtotal' => $subtotal
-                ]);
-                
-                // Set success message
-                $_SESSION['success'] = 'Booking berhasil dibuat! Silakan lanjutkan pembayaran.';
-                
-                // Redirect to payment page
-                header("Location: payment.php?booking_id={$result['booking_id']}&code={$result['booking_code']}");
-                exit;
-            } else {
-                $error = $result['message'] ?? 'Gagal membuat booking. Silakan coba lagi.';
-            }
+            $error = $result['message'] ?? 'Gagal membuat booking. Silakan coba lagi.';
         }
     }
 }
 
-
-
 $adminFee = 50000;
-
-// Generate CSRF token
-$csrfToken = generate_csrf_token();
 ?>
 
 <!DOCTYPE html>
@@ -132,7 +134,7 @@ $csrfToken = generate_csrf_token();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Booking Kos - TemanKosan</title>
+    <title>Booking Kos - <?php echo htmlspecialchars($kos['name']); ?> | TemanKosan</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -382,6 +384,25 @@ $csrfToken = generate_csrf_token();
             background: rgba(0, 200, 81, 0.1);
         }
 
+        .payment-icon {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        .payment-info {
+            flex: 1;
+        }
+
+        .payment-name {
+            font-weight: 600;
+            color: var(--gray-800);
+        }
+
+        .payment-desc {
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
         .btn-submit {
             width: 100%;
             padding: 1rem 2rem;
@@ -402,6 +423,12 @@ $csrfToken = generate_csrf_token();
         .btn-submit:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(0, 200, 81, 0.3);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
         /* Booking Summary */
@@ -493,6 +520,15 @@ $csrfToken = generate_csrf_token();
             margin-bottom: 0.5rem;
         }
 
+        /* Loading State */
+        .loading {
+            display: none;
+        }
+
+        .loading.show {
+            display: inline-flex;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .container {
@@ -518,6 +554,10 @@ $csrfToken = generate_csrf_token();
 
             .page-title {
                 font-size: 2rem;
+            }
+
+            .booking-summary {
+                position: static;
             }
         }
     </style>
@@ -564,8 +604,7 @@ $csrfToken = generate_csrf_token();
         <div class="booking-container">
             <!-- Booking Form -->
             <div class="booking-form">
-                <form method="POST" novalidate>
-                    <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
+                <form method="POST" id="bookingForm" novalidate>
                     <div class="form-section">
                         <h2 class="section-title">
                             <i class="fas fa-user"></i>
@@ -575,23 +614,29 @@ $csrfToken = generate_csrf_token();
                             <div class="form-group">
                                 <label for="fullName">Nama Lengkap <span class="required">*</span></label>
                                 <input type="text" id="fullName" name="full_name" 
-                                       value="<?php echo htmlspecialchars($_SESSION['user']['name']); ?>" required>
+                                       value="<?php echo htmlspecialchars($_SESSION['user']['name'] ?? ''); ?>" 
+                                       required>
                             </div>
                             <div class="form-group">
                                 <label for="email">Email <span class="required">*</span></label>
                                 <input type="email" id="email" name="email" 
-                                       value="<?php echo htmlspecialchars($_SESSION['user']['email']); ?>" required>
+                                       value="<?php echo htmlspecialchars($_SESSION['user']['email'] ?? ''); ?>" 
+                                       required>
                             </div>
                         </div>
                         <div class="form-group">
                             <label for="phone">Nomor Telepon <span class="required">*</span></label>
-                            <input type="tel" id="phone" name="phone" placeholder="Contoh: 08123456789" required>
+                            <input type="tel" id="phone" name="phone" 
+                                   placeholder="Contoh: 08123456789" 
+                                   value="<?php echo htmlspecialchars($_SESSION['user']['phone'] ?? ''); ?>" 
+                                   required>
                         </div>
                         <div class="form-grid">
                             <div class="form-group">
                                 <label for="checkInDate">Tanggal Masuk <span class="required">*</span></label>
                                 <input type="date" id="checkInDate" name="check_in_date" 
-                                       min="<?php echo date('Y-m-d', strtotime('+1 day')); ?>" required>
+                                       min="<?php echo date('Y-m-d', strtotime('+1 day')); ?>" 
+                                       required>
                             </div>
                             <div class="form-group">
                                 <label for="duration">Durasi Sewa <span class="required">*</span></label>
@@ -618,25 +663,39 @@ $csrfToken = generate_csrf_token();
                         <div class="payment-methods">
                             <label class="payment-option selected">
                                 <input type="radio" name="payment_method" value="transfer" checked>
-                                <i class="fas fa-university"></i>
-                                <span>Transfer Bank</span>
+                                <i class="fas fa-university payment-icon"></i>
+                                <div class="payment-info">
+                                    <div class="payment-name">Transfer Bank</div>
+                                    <div class="payment-desc">Transfer ke rekening bank</div>
+                                </div>
                             </label>
                             <label class="payment-option">
                                 <input type="radio" name="payment_method" value="ewallet">
-                                <i class="fas fa-mobile-alt"></i>
-                                <span>E-Wallet (OVO, GoPay, DANA)</span>
+                                <i class="fas fa-mobile-alt payment-icon"></i>
+                                <div class="payment-info">
+                                    <div class="payment-name">E-Wallet</div>
+                                    <div class="payment-desc">OVO, GoPay, DANA, ShopeePay</div>
+                                </div>
                             </label>
                             <label class="payment-option">
                                 <input type="radio" name="payment_method" value="credit">
-                                <i class="fas fa-credit-card"></i>
-                                <span>Kartu Kredit/Debit</span>
+                                <i class="fas fa-credit-card payment-icon"></i>
+                                <div class="payment-info">
+                                    <div class="payment-name">Kartu Kredit/Debit</div>
+                                    <div class="payment-desc">Visa, Mastercard, JCB</div>
+                                </div>
                             </label>
                         </div>
                     </div>
 
-                    <button type="submit" class="btn-submit">
-                        <i class="fas fa-arrow-right"></i>
-                        Lanjutkan ke Pembayaran
+                    <button type="submit" class="btn-submit" id="submitBtn">
+                        <span class="loading" id="loadingSpinner">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </span>
+                        <span id="submitText">
+                            <i class="fas fa-arrow-right"></i>
+                            Lanjutkan ke Pembayaran
+                        </span>
                     </button>
                 </form>
             </div>
@@ -650,6 +709,14 @@ $csrfToken = generate_csrf_token();
                     </h2>
                     
                     <div class="kos-preview">
+                        <div class="kos-image">
+                            <?php if (!empty($kos['image'])): ?>
+                                <img src="uploads/<?php echo htmlspecialchars($kos['image']); ?>" 
+                                     alt="<?php echo htmlspecialchars($kos['name']); ?>">
+                            <?php else: ?>
+                                <img src="https://via.placeholder.com/80x80?text=No+Image" alt="No Image">
+                            <?php endif; ?>
+                        </div>
                         <div class="kos-info">
                             <h3><?php echo htmlspecialchars($kos['name']); ?></h3>
                             <p><i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($kos['address']); ?></p>
@@ -683,7 +750,7 @@ $csrfToken = generate_csrf_token();
                     <div class="booking-note">
                         <strong><i class="fas fa-info-circle"></i> Catatan Penting:</strong>
                         Pembayaran harus dilakukan dalam 24 jam setelah booking untuk mengkonfirmasi reservasi Anda. 
-                        Setelah pembayaran berhasil, Anda akan menerima konfirmasi via email.
+                        Setelah pembayaran berhasil, Anda akan menerima konfirmasi via email dan WhatsApp.
                     </div>
                 </div>
             </div>
@@ -722,29 +789,113 @@ $csrfToken = generate_csrf_token();
                 });
             });
 
-            // Form validation
-            const form = document.querySelector('form');
+            // Form validation and submission
+            const form = document.getElementById('bookingForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const submitText = document.getElementById('submitText');
+
             form.addEventListener('submit', function(e) {
                 const phone = document.getElementById('phone').value.trim();
                 const checkInDate = document.getElementById('checkInDate').value;
                 
-                if (phone && !/^[0-9+\-\s()]{10,}$/.test(phone)) {
+                // Phone validation
+                if (phone && !/^(08|62)[0-9]{8,12}$/.test(phone.replace(/[^0-9]/g, ''))) {
                     e.preventDefault();
-                    alert('Format nomor telepon tidak valid!');
+                    alert('Format nomor telepon tidak valid! Gunakan format: 08xxxxxxxxxx');
                     return;
                 }
                 
+                // Date validation
                 if (checkInDate && new Date(checkInDate) <= new Date()) {
                     e.preventDefault();
                     alert('Tanggal check-in harus minimal besok!');
                     return;
                 }
+
+                // Show loading state
+                submitBtn.disabled = true;
+                loadingSpinner.classList.add('show');
+                submitText.style.display = 'none';
             });
 
             // Set default check-in date to tomorrow
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             document.getElementById('checkInDate').value = tomorrow.toISOString().split('T')[0];
+
+            // Phone number formatting
+            const phoneInput = document.getElementById('phone');
+            phoneInput.addEventListener('input', function() {
+                let value = this.value.replace(/[^0-9]/g, '');
+                if (value.startsWith('62')) {
+                    value = '0' + value.substring(2);
+                }
+                this.value = value;
+            });
+
+            // Real-time form validation
+            const requiredFields = form.querySelectorAll('[required]');
+            requiredFields.forEach(field => {
+                field.addEventListener('blur', function() {
+                    if (!this.value.trim()) {
+                        this.style.borderColor = '#dc3545';
+                    } else {
+                        this.style.borderColor = '#00c851';
+                    }
+                });
+
+                field.addEventListener('input', function() {
+                    if (this.value.trim()) {
+                        this.style.borderColor = '#00c851';
+                    }
+                });
+            });
+        });
+
+        // Auto-save form data to localStorage
+        function saveFormData() {
+            const formData = {
+                full_name: document.getElementById('fullName').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                check_in_date: document.getElementById('checkInDate').value,
+                duration: document.getElementById('duration').value,
+                notes: document.getElementById('notes').value,
+                payment_method: document.querySelector('input[name="payment_method"]:checked')?.value
+            };
+            localStorage.setItem('bookingFormData', JSON.stringify(formData));
+        }
+
+        // Load saved form data
+        function loadFormData() {
+            const savedData = localStorage.getItem('bookingFormData');
+            if (savedData) {
+                const formData = JSON.parse(savedData);
+                Object.keys(formData).forEach(key => {
+                    const element = document.getElementById(key) || document.querySelector(`input[name="${key}"][value="${formData[key]}"]`);
+                    if (element) {
+                        if (element.type === 'radio') {
+                            element.checked = true;
+                            element.closest('.payment-option').classList.add('selected');
+                        } else {
+                            element.value = formData[key];
+                        }
+                    }
+                });
+                updateSummary();
+            }
+        }
+
+        // Save form data on input change
+        document.addEventListener('input', saveFormData);
+        document.addEventListener('change', saveFormData);
+
+        // Clear saved data on successful submission
+        window.addEventListener('beforeunload', function() {
+            if (document.getElementById('submitBtn').disabled) {
+                localStorage.removeItem('bookingFormData');
+            }
         });
     </script>
 </body>

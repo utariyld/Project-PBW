@@ -1011,6 +1011,7 @@ if (!empty($searchLocation)) {
             font-weight: 500;
         }
 
+        /* PERBAIKAN UTAMA: Tombol booking dengan z-index tinggi dan event handling yang benar */
         .btn-booking {
             background: linear-gradient(135deg, var(--secondary-color), var(--accent-color));
             color: var(--white);
@@ -1026,12 +1027,13 @@ if (!empty($searchLocation)) {
             align-items: center;
             gap: 0.5rem;
             position: relative;
-            z-index: 10;
+            z-index: 100; /* Z-index tinggi untuk memastikan tombol dapat diklik */
         }
 
         .btn-booking:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(255, 105, 180, 0.4);
+            color: var(--white); /* Pastikan warna tetap putih saat hover */
         }
 
         /* Search Results */
@@ -1054,17 +1056,6 @@ if (!empty($searchLocation)) {
             padding: 4rem 0 2rem;
             margin-top: 6rem;
             position: relative;
-        }
-
-        .footer::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 100px;
-            background: var(--white);
-            clip-path: polygon(0 100%, 100% 0, 100% 100%);
         }
 
         .footer-container {
@@ -1186,96 +1177,10 @@ if (!empty($searchLocation)) {
             color: var(--primary-color);
         }
 
-        /* Floating Button */
-        .floating-btn {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: var(--white);
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: var(--shadow-lg);
-            z-index: 1000;
-            font-size: 1.8rem;
-            transition: var(--transition);
-            border: none;
-        }
-
-        .floating-btn:hover {
-            transform: scale(1.1);
-            box-shadow: 0 15px 35px rgba(0, 200, 81, 0.4);
-        }
-
-        .floating-btn:active {
-            transform: scale(0.95);
-        }
-
-        /* Scroll to Top Button */
-        .scroll-top {
-            position: fixed;
-            bottom: 2rem;
-            left: 2rem;
-            background: linear-gradient(135deg, var(--gray-700), var(--gray-800));
-            color: var(--white);
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: var(--shadow);
-            z-index: 1000;
-            font-size: 1.2rem;
-            transition: var(--transition);
-            opacity: 0;
-            visibility: hidden;
-            border: none;
-        }
-
-        .scroll-top.visible {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .scroll-top:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        /* Mobile Menu */
-        .mobile-menu-btn {
-            display: none;
-            flex-direction: column;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 0.5rem;
-        }
-
-        .mobile-menu-btn span {
-            width: 25px;
-            height: 3px;
-            background: var(--gray-700);
-            margin: 3px 0;
-            transition: 0.3s;
-            border-radius: 2px;
-        }
-
         /* Responsive */
         @media (max-width: 1024px) {
             .nav-links {
                 display: none;
-            }
-
-            .mobile-menu-btn {
-                display: flex;
             }
 
             .search-grid {
@@ -1319,8 +1224,6 @@ if (!empty($searchLocation)) {
                 font-size: 2.2rem;
             }
 
-            .features-grid,
-            .testimonials-grid,
             .kos-grid {
                 grid-template-columns: 1fr;
                 gap: 2rem;
@@ -1329,55 +1232,10 @@ if (!empty($searchLocation)) {
             .container {
                 padding: 0 1rem;
             }
-
-            .floating-btn {
-                width: 60px;
-                height: 60px;
-                font-size: 1.5rem;
-            }
-        }
-
-        /* Animation Classes */
-        .fade-in {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: all 0.6s ease;
-        }
-
-        .fade-in.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .slide-in-left {
-            opacity: 0;
-            transform: translateX(-50px);
-            transition: all 0.6s ease;
-        }
-
-        .slide-in-left.visible {
-            opacity: 1;
-            transform: translateX(0);
-        }
-
-        .slide-in-right {
-            opacity: 0;
-            transform: translateX(50px);
-            transition: all 0.6s ease;
-        }
-
-        .slide-in-right.visible {
-            opacity: 1;
-            transform: translateX(0);
         }
     </style>
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div class="loading" id="loading">
-        <div class="spinner"></div>
-    </div>
-
     <!-- Navigation -->
     <nav class="navbar" id="navbar">
         <div class="nav-container">
@@ -1407,11 +1265,6 @@ if (!empty($searchLocation)) {
                     </a>
                 <?php endif; ?>
             </div>
-            <button class="mobile-menu-btn">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
         </div>
     </nav>
 
@@ -1439,22 +1292,22 @@ if (!empty($searchLocation)) {
     <section class="section stats-section">
         <div class="container">
             <div class="stats-grid">
-                <div class="stat-card fade-in">
+                <div class="stat-card">
                     <div class="stat-icon"><i class="fas fa-home"></i></div>
                     <div class="stat-number"><?= number_format($statistics['total_kos']) ?></div>
                     <div class="stat-label">Kos Tersedia</div>
                 </div>
-                <div class="stat-card fade-in">
+                <div class="stat-card">
                     <div class="stat-icon"><i class="fas fa-users"></i></div>
                     <div class="stat-number"><?= number_format($statistics['total_users']) ?></div>
                     <div class="stat-label">Pengguna Aktif</div>
                 </div>
-                <div class="stat-card fade-in">
+                <div class="stat-card">
                     <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
                     <div class="stat-number"><?= number_format($statistics['total_bookings']) ?></div>
                     <div class="stat-label">Booking Sukses</div>
                 </div>
-                <div class="stat-card fade-in">
+                <div class="stat-card">
                     <div class="stat-icon"><i class="fas fa-star"></i></div>
                     <div class="stat-number"><?= $statistics['avg_rating'] ?></div>
                     <div class="stat-label">Rating Rata-rata</div>
@@ -1463,79 +1316,12 @@ if (!empty($searchLocation)) {
         </div>
     </section>
 
-    <!-- Features Section -->
-    <section class="section">
-        <div class="container">
-            <h2 class="section-title fade-in">Mengapa Pilih TemanKosan?</h2>
-            <p class="section-subtitle fade-in">Kami menyediakan layanan terbaik untuk membantu Anda menemukan kos impian</p>
-            <div class="features-grid">
-                <div class="feature-card fade-in">
-                    <div class="feature-icon">
-                        <i class="fas fa-search"></i>
-                    </div>
-                    <h3 class="feature-title">Pencarian Mudah</h3>
-                    <p class="feature-description">Temukan kos sesuai kriteria dengan filter lengkap dan pencarian yang akurat. Sistem pencarian canggih kami membantu Anda menemukan kos impian dengan cepat.</p>
-                </div>
-                
-                <div class="feature-card fade-in">
-                    <div class="feature-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <h3 class="feature-title">Terpercaya & Aman</h3>
-                    <p class="feature-description">Semua kos telah diverifikasi dan sistem pembayaran yang aman. Keamanan data dan transaksi Anda adalah prioritas utama kami.</p>
-                </div>
-                
-                <div class="feature-card fade-in">
-                    <div class="feature-icon">
-                        <i class="fas fa-headset"></i>
-                    </div>
-                    <h3 class="feature-title">Support 24/7</h3>
-                    <p class="feature-description">Tim customer service siap membantu Anda kapan saja. Dapatkan bantuan profesional untuk semua kebutuhan Anda.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Testimonials Section -->
-    <?php if (!empty($testimonials)): ?>
-    <section class="section testimonials-section">
-        <div class="container">
-            <h2 class="section-title fade-in">Apa Kata Mereka?</h2>
-            <p class="section-subtitle fade-in">Testimoni dari pengguna yang telah merasakan layanan TemanKosan</p>
-            <div class="testimonials-grid">
-                <?php foreach ($testimonials as $index => $testimonial): ?>
-                    <div class="testimonial-card fade-in" style="animation-delay: <?= $index * 0.1 ?>s">
-                        <div class="testimonial-header">
-                            <div class="testimonial-avatar">
-                                <?= strtoupper(substr($testimonial['name'], 0, 1)) ?>
-                            </div>
-                            <div class="testimonial-info">
-                                <h4><?= htmlspecialchars($testimonial['name']) ?></h4>
-                                <p><?= htmlspecialchars($testimonial['kos_name']) ?></p>
-                            </div>
-                        </div>
-                        <div class="testimonial-rating">
-                            <?php for ($i = 1; $i <= 5; $i++): ?>
-                                <span class="stars <?= $i <= $testimonial['rating'] ? '' : 'empty' ?>">
-                                    <i class="fas fa-star"></i>
-                                </span>
-                            <?php endfor; ?>
-                            <span class="rating-text"><?= date('d M Y', strtotime($testimonial['created_at'])) ?></span>
-                        </div>
-                        <p class="testimonial-comment"><?= htmlspecialchars($testimonial['comment']) ?></p>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-    </section>
-    <?php endif; ?>
-
     <!-- Kos Listings -->
     <section class="section kos-section">
         <div class="container">
             <div class="section-header">
                 <div>
-                    <h2 class="section-title fade-in">
+                    <h2 class="section-title">
                         <?php echo !empty($searchLocation) ? 'Hasil Pencarian' : 'Kos Terpopuler'; ?>
                     </h2>
                     <?php if (!empty($searchLocation)): ?>
@@ -1544,13 +1330,13 @@ if (!empty($searchLocation)) {
                         <p class="section-subtitle">Kos pilihan terbaik dengan fasilitas lengkap dan lokasi strategis</p>
                     <?php endif; ?>
                 </div>
-                <a href="search.php" class="btn-view-all fade-in">
+                <a href="search.php" class="btn-view-all">
                     <i class="fas fa-th-large"></i> Lihat Semua
                 </a>
             </div>
             
             <?php if (!empty($searchLocation)): ?>
-                <div class="search-results fade-in">
+                <div class="search-results">
                     <?php if (count($featuredKos) > 0): ?>
                         <p><i class="fas fa-check-circle"></i> Ditemukan <?php echo count($featuredKos); ?> kos di lokasi "<?php echo htmlspecialchars($searchLocation); ?>"</p>
                     <?php else: ?>
@@ -1561,19 +1347,18 @@ if (!empty($searchLocation)) {
             
             <div class="kos-grid">
                 <?php foreach ($featuredKos as $index => $kos): ?>
-                    <div class="kos-card fade-in" style="animation-delay: <?= $index * 0.1 ?>s" onclick="window.location.href='kos-detail.php?id=<?php echo $kos['id']; ?>'">
+                    <div class="kos-card">
                         <div class="kos-image">
-                        <?php if (!empty($kos['primary_image'])): ?>
-                            <img src="uploads/<?= htmlspecialchars($kos['primary_image']) ?>" alt="<?= htmlspecialchars($kos['name']) ?>">
-                        <?php else: ?>
-                            <img src="https://via.placeholder.com/400x250?text=No+Image" alt="No Image">
-                        <?php endif; ?>
+                            <?php if (!empty($kos['primary_image'])): ?>
+                                <img src="uploads/<?= htmlspecialchars($kos['primary_image']) ?>" alt="<?= htmlspecialchars($kos['name']) ?>">
+                            <?php else: ?>
+                                <img src="https://via.placeholder.com/400x250?text=No+Image" alt="No Image">
+                            <?php endif; ?>
 
-                        <button class="favorite-btn" onclick="event.stopPropagation(); toggleFavorite(<?php echo $kos['id']; ?>)">
-                            <i class="fas fa-heart"></i>
-                        </button>
-                    </div>
-
+                            <button class="favorite-btn" onclick="event.stopPropagation(); toggleFavorite(<?php echo $kos['id']; ?>)">
+                                <i class="fas fa-heart"></i>
+                            </button>
+                        </div>
                         
                         <div class="kos-content">
                             <h3 class="kos-title"><?php echo htmlspecialchars($kos['name']); ?></h3>
@@ -1610,10 +1395,12 @@ if (!empty($searchLocation)) {
                                     Rp <?php echo number_format($kos['price'], 0, ',', '.'); ?>
                                     <span>/bulan</span>
                                 </div>
-                                <a href="booking.php?id=<?php echo $kos['id']; ?>" class="btn-booking">
+                                <!-- PERBAIKAN: Tombol booking dengan event handler yang benar -->
+                                <a href="booking.php?id=<?php echo $kos['id']; ?>" 
+                                   class="btn-booking" 
+                                   onclick="handleBookingClick(event, <?php echo $kos['id']; ?>)">
                                     <i class="fas fa-calendar-plus"></i> Booking
                                 </a>
-
                             </div>
                         </div>
                     </div>
@@ -1683,78 +1470,36 @@ if (!empty($searchLocation)) {
         </div>
     </footer>
 
-    <!-- Floating Testimonial Button -->
-    <button class="floating-btn" onclick="openTestimonialModal()" title="Berikan Testimoni">
-        <i class="fas fa-comment-dots"></i>
-    </button>
-
-    <!-- Scroll to Top Button -->
-    <button class="scroll-top" id="scrollTop" onclick="scrollToTop()" title="Kembali ke Atas">
-        <i class="fas fa-chevron-up"></i>
-    </button>
-
     <script>
-        // Loading Screen
-        window.addEventListener('load', function() {
-            const loading = document.getElementById('loading');
-            setTimeout(() => {
-                loading.classList.add('hidden');
-            }, 1000);
-        });
+        // PERBAIKAN: Function untuk handle booking click dengan benar
+        function handleBookingClick(event, kosId) {
+            // Cegah event bubbling ke parent elements
+            event.stopPropagation();
+            
+            // Check if user is logged in
+            <?php if (isset($_SESSION['user'])): ?>
+                // User sudah login, lanjutkan ke booking
+                console.log('Redirecting to booking page for kos ID:', kosId);
+                window.location.href = 'booking.php?id=' + kosId;
+            <?php else: ?>
+                // User belum login, redirect ke login page
+                console.log('User not logged in, redirecting to login');
+                alert('Silakan login terlebih dahulu untuk melakukan booking');
+                window.location.href = 'login.php?redirect=' + encodeURIComponent('booking.php?id=' + kosId);
+            <?php endif; ?>
+            
+            return false;
+        }
 
         // Navbar Scroll Effect
         window.addEventListener('scroll', function() {
             const navbar = document.getElementById('navbar');
-            const scrollTop = document.getElementById('scrollTop');
             
             if (window.scrollY > 100) {
                 navbar.classList.add('scrolled');
-                scrollTop.classList.add('visible');
             } else {
                 navbar.classList.remove('scrolled');
-                scrollTop.classList.remove('visible');
             }
-        });
-
-        // Scroll to Top
-        function scrollToTop() {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
-        }
-
-        // Smooth Scrolling for Navigation
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
-
-        // Intersection Observer for Animations
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('visible');
-                }
-            });
-        }, observerOptions);
-
-        // Observe all fade-in elements
-        document.querySelectorAll('.fade-in, .slide-in-left, .slide-in-right').forEach(el => {
-            observer.observe(el);
         });
 
         // Toggle Favorite Function
@@ -1793,295 +1538,6 @@ if (!empty($searchLocation)) {
                     window.location.href = 'login.php';
                 }, 2000);
             <?php endif; ?>
-        }
-
-        // Open Testimonial Modal
-        function openTestimonialModal() {
-            <?php if (isset($_SESSION['user'])): ?>
-                // Create modal HTML
-                const modalHTML = `
-                    <div class="modal-overlay" id="testimonialModal" onclick="closeTestimonialModal(event)">
-                        <div class="modal-content" onclick="event.stopPropagation()">
-                            <div class="modal-header">
-                                <h3><i class="fas fa-comment-dots"></i> Berikan Testimoni</h3>
-                                <button class="modal-close" onclick="closeTestimonialModal()">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </div>
-                            <form class="testimonial-form" onsubmit="submitTestimonial(event)">
-                                <div class="form-group">
-                                    <label>Nama Kos *</label>
-                                    <input type="text" name="kos_name" required placeholder="Nama kos yang pernah Anda tempati">
-                                </div>
-                                <div class="form-group">
-                                    <label>Rating *</label>
-                                    <div class="rating-input">
-                                        ${[1,2,3,4,5].map(i => `
-                                            <span class="rating-star" data-rating="${i}" onclick="setRating(${i})">
-                                                <i class="fas fa-star"></i>
-                                            </span>
-                                        `).join('')}
-                                    </div>
-                                    <input type="hidden" name="rating" value="5" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Testimoni *</label>
-                                    <textarea name="comment" required placeholder="Ceritakan pengalaman Anda..." rows="4"></textarea>
-                                    <small class="char-counter">0/20 karakter minimum</small>
-                                </div>
-                                <div class="form-actions">
-                                    <button type="button" class="btn btn-outline" onclick="closeTestimonialModal()">Batal</button>
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-paper-plane"></i> Kirim Testimoni
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                `;
-
-                // Add modal to body
-                document.body.insertAdjacentHTML('beforeend', modalHTML);
-                
-                // Add modal styles
-                const modalStyles = `
-                    <style id="modalStyles">
-                        .modal-overlay {
-                            position: fixed;
-                            top: 0;
-                            left: 0;
-                            width: 100%;
-                            height: 100%;
-                            background: rgba(0, 0, 0, 0.5);
-                            backdrop-filter: blur(5px);
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            z-index: 10000;
-                            animation: fadeIn 0.3s ease;
-                        }
-                        
-                        .modal-content {
-                            background: white;
-                            border-radius: var(--border-radius-lg);
-                            padding: 2rem;
-                            max-width: 500px;
-                            width: 90%;
-                            max-height: 90vh;
-                            overflow-y: auto;
-                            box-shadow: var(--shadow-lg);
-                            animation: slideInUp 0.3s ease;
-                        }
-                        
-                        .modal-header {
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: center;
-                            margin-bottom: 2rem;
-                            padding-bottom: 1rem;
-                            border-bottom: 1px solid var(--gray-200);
-                        }
-                        
-                        .modal-header h3 {
-                            margin: 0;
-                            color: var(--gray-800);
-                            font-size: 1.5rem;
-                        }
-                        
-                        .modal-close {
-                            background: none;
-                            border: none;
-                            font-size: 1.5rem;
-                            cursor: pointer;
-                            color: var(--gray-600);
-                            transition: var(--transition);
-                        }
-                        
-                        .modal-close:hover {
-                            color: var(--gray-800);
-                        }
-                        
-                        .testimonial-form .form-group {
-                            margin-bottom: 1.5rem;
-                        }
-                        
-                        .testimonial-form label {
-                            display: block;
-                            margin-bottom: 0.5rem;
-                            font-weight: 600;
-                            color: var(--gray-700);
-                        }
-                        
-                        .testimonial-form input,
-                        .testimonial-form textarea {
-                            width: 100%;
-                            padding: 0.75rem;
-                            border: 2px solid var(--gray-300);
-                            border-radius: var(--border-radius);
-                            font-size: 1rem;
-                            transition: var(--transition);
-                        }
-                        
-                        .testimonial-form input:focus,
-                        .testimonial-form textarea:focus {
-                            outline: none;
-                            border-color: var(--primary-color);
-                            box-shadow: 0 0 0 3px rgba(0, 200, 81, 0.1);
-                        }
-                        
-                        .rating-input {
-                            display: flex;
-                            gap: 0.5rem;
-                            margin-bottom: 0.5rem;
-                        }
-                        
-                        .rating-star {
-                            font-size: 2rem;
-                            color: var(--gray-300);
-                            cursor: pointer;
-                            transition: var(--transition);
-                        }
-                        
-                        .rating-star:hover,
-                        .rating-star.active {
-                            color: #ffc107;
-                        }
-                        
-                        .char-counter {
-                            color: var(--gray-500);
-                            font-size: 0.9rem;
-                        }
-                        
-                        .form-actions {
-                            display: flex;
-                            gap: 1rem;
-                            justify-content: flex-end;
-                            margin-top: 2rem;
-                        }
-                        
-                        @keyframes fadeIn {
-                            from { opacity: 0; }
-                            to { opacity: 1; }
-                        }
-                        
-                        @keyframes slideInUp {
-                            from {
-                                opacity: 0;
-                                transform: translateY(30px);
-                            }
-                            to {
-                                opacity: 1;
-                                transform: translateY(0);
-                            }
-                        }
-                    </style>
-                `;
-                
-                document.head.insertAdjacentHTML('beforeend', modalStyles);
-                
-                // Initialize rating
-                setRating(5);
-                
-                // Character counter
-                const textarea = document.querySelector('.testimonial-form textarea');
-                const counter = document.querySelector('.char-counter');
-                textarea.addEventListener('input', function() {
-                    const length = this.value.length;
-                    counter.textContent = `${length}/20 karakter minimum`;
-                    counter.style.color = length >= 20 ? 'var(--primary-color)' : 'var(--gray-500)';
-                });
-                
-            <?php else: ?>
-                showNotification('Silakan login terlebih dahulu untuk memberikan testimoni', 'warning');
-                setTimeout(() => {
-                    window.location.href = 'login.php';
-                }, 2000);
-            <?php endif; ?>
-        }
-
-        // Close Testimonial Modal
-        function closeTestimonialModal(event) {
-            if (event && event.target !== event.currentTarget) return;
-            
-            const modal = document.getElementById('testimonialModal');
-            const styles = document.getElementById('modalStyles');
-            
-            if (modal) {
-                modal.style.animation = 'fadeOut 0.3s ease';
-                setTimeout(() => {
-                    modal.remove();
-                    if (styles) styles.remove();
-                }, 300);
-            }
-        }
-
-        // Set Rating
-        function setRating(rating) {
-            const stars = document.querySelectorAll('.rating-star');
-            const input = document.querySelector('input[name="rating"]');
-            
-            stars.forEach((star, index) => {
-                if (index < rating) {
-                    star.classList.add('active');
-                } else {
-                    star.classList.remove('active');
-                }
-            });
-            
-            if (input) input.value = rating;
-        }
-
-        // Submit Testimonial
-        function submitTestimonial(event) {
-            event.preventDefault();
-            
-            const form = event.target;
-            const formData = new FormData(form);
-            const data = {
-                name: '<?= isset($_SESSION['user']) ? $_SESSION['user']['name'] : '' ?>',
-                email: '<?= isset($_SESSION['user']) ? $_SESSION['user']['email'] : '' ?>',
-                kos: formData.get('kos_name'),
-                rating: parseInt(formData.get('rating')),
-                comment: formData.get('comment')
-            };
-            
-            // Validation
-            if (data.comment.length < 20) {
-                showNotification('Testimoni minimal 20 karakter', 'error');
-                return;
-            }
-            
-            // Show loading
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
-            submitBtn.disabled = true;
-            
-            fetch('api/testimonials.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    showNotification('Terima kasih! Testimoni Anda telah dikirim dan akan ditinjau oleh tim kami.', 'success');
-                    closeTestimonialModal();
-                } else {
-                    showNotification(result.message || 'Gagal mengirim testimoni', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('Terjadi kesalahan sistem', 'error');
-            })
-            .finally(() => {
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
-            });
         }
 
         // Show Notification
@@ -2129,12 +1585,6 @@ if (!empty($searchLocation)) {
                             background: linear-gradient(135deg, #fff3cd, #ffeaa7);
                             border: 1px solid #ffeaa7;
                             color: #856404;
-                        }
-                        
-                        .notification-info {
-                            background: linear-gradient(135deg, #d1ecf1, #bee5eb);
-                            border: 1px solid #bee5eb;
-                            color: #0c5460;
                         }
                         
                         .notification-content {
@@ -2198,61 +1648,7 @@ if (!empty($searchLocation)) {
                     this.src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop';
                 });
             });
-            
-            // Initialize tooltips
-            const tooltipElements = document.querySelectorAll('[title]');
-            tooltipElements.forEach(el => {
-                el.addEventListener('mouseenter', function() {
-                    const tooltip = document.createElement('div');
-                    tooltip.className = 'tooltip';
-                    tooltip.textContent = this.getAttribute('title');
-                    document.body.appendChild(tooltip);
-                    
-                    const rect = this.getBoundingClientRect();
-                    tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
-                    tooltip.style.top = rect.top - tooltip.offsetHeight - 10 + 'px';
-                });
-                
-                el.addEventListener('mouseleave', function() {
-                    const tooltip = document.querySelector('.tooltip');
-                    if (tooltip) tooltip.remove();
-                });
-            });
         });
-
-        // Add CSS for fadeOut animation
-        const fadeOutStyles = `
-            <style>
-                @keyframes fadeOut {
-                    from { opacity: 1; }
-                    to { opacity: 0; }
-                }
-                
-                @keyframes slideOutRight {
-                    from {
-                        opacity: 1;
-                        transform: translateX(0);
-                    }
-                    to {
-                        opacity: 0;
-                        transform: translateX(100%);
-                    }
-                }
-                
-                .tooltip {
-                    position: absolute;
-                    background: var(--gray-800);
-                    color: white;
-                    padding: 0.5rem 1rem;
-                    border-radius: var(--border-radius);
-                    font-size: 0.9rem;
-                    z-index: 10000;
-                    pointer-events: none;
-                    animation: fadeIn 0.2s ease;
-                }
-            </style>
-        `;
-        document.head.insertAdjacentHTML('beforeend', fadeOutStyles);
     </script>
 </body>
 </html>
