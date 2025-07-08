@@ -26,6 +26,9 @@ $error = '';
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Verify CSRF token
+    if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+        $error = 'Token keamanan tidak valid. Silakan coba lagi.';
+    } else {
         $fullName = sanitize_input($_POST['full_name'] ?? '');
         $email = sanitize_input($_POST['email'] ?? '');
         $phone = sanitize_input($_POST['phone'] ?? '');
@@ -114,10 +117,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+}
 
 
 
 $adminFee = 50000;
+
+// Generate CSRF token
+$csrfToken = generate_csrf_token();
 ?>
 
 <!DOCTYPE html>
@@ -558,6 +565,7 @@ $adminFee = 50000;
             <!-- Booking Form -->
             <div class="booking-form">
                 <form method="POST" novalidate>
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                     <div class="form-section">
                         <h2 class="section-title">
                             <i class="fas fa-user"></i>
