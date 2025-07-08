@@ -1,51 +1,165 @@
 <?php
 session_start();
-require_once '../config/database.php';
-require_once '../includes/functions.php';
-require_once '../includes/admin-functions.php';
+require_once __DIR__ . '/../includes/functions.php';
 
-// Check if user is admin
-require_admin();
+// Check if user is admin (simple check for demo)
+if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+    header('Location: login.php?redirect=' . urlencode($_SERVER['REQUEST_URI']));
+    exit;
+}
 
-$success = '';
-$error = '';
+$db = getConnection();
+$message = "";
+$messageType = "";
 
-// Handle actions
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
-    
-    if ($action === 'update_status') {
-        $bookingId = (int)($_POST['booking_id'] ?? 0);
-        $bookingStatus = $_POST['booking_status'] ?? '';
-        $paymentStatus = $_POST['payment_status'] ?? '';
-        
-        if ($bookingId && in_array($bookingStatus, ['pending', 'confirmed', 'cancelled', 'completed'])) {
-            if (update_booking_status($bookingId, $bookingStatus, $paymentStatus)) {
-                $success = 'Status booking berhasil diperbarui';
-                
-                // Log activity
-                log_admin_activity($_SESSION['user']['id'], 'admin_booking_update', 
-                    "Admin updated booking status: $bookingId to $bookingStatus");
-            } else {
-                $error = 'Gagal memperbarui status booking';
+// Handle booking status updates
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_booking'])) {
+    $booking_id = filter_input(INPUT_POST, 'booking_id', FILTER_VALIDATE_INT);
+    $booking_status = filter_input(INPUT_POST, 'booking_status', FILTER_SANITIZE_STRING);
+    $payment_status = filter_input(INPUT_POST, 'payment_status', FILTER_SANITIZE_STRING);
+
+    if ($booking_id && $booking_status) {
+        try {
+            $sql = "UPDATE bookings SET booking_status = :booking_status";
+            $params = [':booking_status' => $booking_status, ':id' => $booking_id];
+
+            if ($payment_status) {
+                $sql .= ", payment_status = :payment_status";
+                $params[':payment_status'] = $payment_status;
             }
+
+            $sql .= ", updated_at = NOW() WHERE id = :id";
+
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+
+            $message = "Status booking berhasil diperbarui.";
+            $messageType = "success";
+
+            // Log activity
+            log_activity($_SESSION['user']['id'], 'update_booking_status', "Updated booking #{$booking_id} to {$booking_status}");
+
+        } catch (Exception $e) {
+            $message = "Gagal memperbarui status: " . $e->getMessage();
+            $messageType = "error";
+        }
+    } else {
+        $message = "Data tidak valid. Gagal memperbarui status.";
+        $messageType = "error";
+    }
+}
+
+// Handle booking deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_booking'])) {
+    $booking_id = filter_input(INPUT_POST, 'booking_id', FILTER_VALIDATE_INT);
+
+    if ($booking_id) {
+        try {
+            $stmt = $db->prepare("DELETE FROM bookings WHERE id = :id");
+            $stmt->execute([':id' => $booking_id]);
+
+            $message = "Booking berhasil dihapus.";
+            $messageType = "success";
+
+            log_activity($_SESSION['user']['id'], 'delete_booking', "Deleted booking #{$booking_id}");
+
+        } catch (Exception $e) {
+            $message = "Gagal menghapus booking: " . $e->getMessage();
+            $messageType = "error";
         }
     }
 }
 
 // Get filter parameters
-$page = (int)($_GET['page'] ?? 1);
-$search = $_GET['search'] ?? '';
-$status = $_GET['status'] ?? '';
-$limit = 20;
+$status_filter = isset($_GET['status']) ? $_GET['status'] : '';
+$date_from = isset($_GET['date_from']) ? $_GET['date_from'] : '';
+$date_to = isset($_GET['date_to']) ? $_GET['date_to'] : '';
+$search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
 
-// Get bookings data
-$bookingsData = get_all_bookings_admin($page, $limit, $search, $status);
-$bookings = $bookingsData['data'] ?? [];
-$totalBookings = $bookingsData['total'] ?? 0;
-$totalPages = ceil($totalBookings / $limit);
+// Build query with filters
+$sql = "SELECT 
+            b.id, 
+            b.user_id, 
+            b.kos_id, 
+            b.booking_code,
+            b.full_name,
+            b.email,
+            b.phone,
+            b.check_in_date,
+            b.duration_months,
+            b.total_price,
+            b.admin_fee,
+            b.payment_method,
+            b.booking_status,
+            b.payment_status,
+            b.notes,
+            b.created_at,
+            b.updated_at,
+            COALESCE(u.name, 'User tidak ditemukan') AS user_name,
+            COALESCE(k.name, 'Kos tidak ditemukan') AS kos_name,
+            COALESCE(k.address, '') AS kos_address,
+            COALESCE(l.city, '') AS kos_city
+        FROM bookings b
+        LEFT JOIN users u ON b.user_id = u.id
+        LEFT JOIN kos k ON b.kos_id = k.id
+        LEFT JOIN locations l ON k.location_id = l.id
+        WHERE 1=1";
+
+$params = [];
+
+if ($status_filter) {
+    $sql .= " AND b.booking_status = :status";
+    $params[':status'] = $status_filter;
+}
+
+if ($date_from) {
+    $sql .= " AND DATE(b.created_at) >= :date_from";
+    $params[':date_from'] = $date_from;
+}
+
+if ($date_to) {
+    $sql .= " AND DATE(b.created_at) <= :date_to";
+    $params[':date_to'] = $date_to;
+}
+
+if ($search_term) {
+    $sql .= " AND (b.booking_code LIKE :search OR b.full_name LIKE :search OR b.email LIKE :search OR k.name LIKE :search)";
+    $params[':search'] = "%{$search_term}%";
+}
+
+$sql .= " ORDER BY b.created_at DESC";
+
+try {
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $message = "Error fetching bookings: " . $e->getMessage();
+    $messageType = "error";
+    $bookings = [];
+}
+
+// Get booking statistics
+try {
+    $stats_sql = "SELECT 
+                    COUNT(*) as total_bookings,
+                    SUM(CASE WHEN booking_status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+                    SUM(CASE WHEN booking_status = 'confirmed' THEN 1 ELSE 0 END) as confirmed_count,
+                    SUM(CASE WHEN booking_status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count,
+                    SUM(CASE WHEN payment_status = 'paid' THEN total_price ELSE 0 END) as total_revenue
+                  FROM bookings";
+    $stats = $db->query($stats_sql)->fetch(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $stats = [
+        'total_bookings' => 0,
+        'pending_count' => 0,
+        'confirmed_count' => 0,
+        'cancelled_count' => 0,
+        'total_revenue' => 0
+    ];
+}
+
 ?>
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -184,10 +298,113 @@ $totalPages = ceil($totalBookings / $limit);
             gap: 0.5rem;
         }
 
-        .header-actions {
+        /* Statistics Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: var(--border-radius-lg);
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            border: 2px solid transparent;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .stat-card.total { border-color: rgba(0, 200, 81, 0.2); }
+        .stat-card.pending { border-color: rgba(255, 193, 7, 0.2); }
+        .stat-card.confirmed { border-color: rgba(0, 200, 81, 0.2); }
+        .stat-card.cancelled { border-color: rgba(220, 53, 69, 0.2); }
+        .stat-card.revenue { border-color: rgba(255, 105, 180, 0.2); }
+
+        .stat-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            color: var(--gray-800);
+        }
+
+        .stat-label {
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+
+        /* Message Alert */
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 2rem;
+            font-weight: 500;
             display: flex;
-            gap: 1rem;
             align-items: center;
+            gap: 0.8rem;
+        }
+
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Filters */
+        .filters {
+            background: white;
+            padding: 1.5rem 2rem;
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        .filter-row {
+            display: grid;
+            grid-template-columns: 1fr 200px 200px 200px auto;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--gray-700);
+        }
+
+        .form-control {
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--gray-300);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 200, 81, 0.1);
         }
 
         .btn {
@@ -201,6 +418,7 @@ $totalPages = ceil($totalBookings / $limit);
             gap: 0.5rem;
             transition: var(--transition);
             font-weight: 600;
+            font-size: 1rem;
         }
 
         .btn-primary {
@@ -213,136 +431,76 @@ $totalPages = ceil($totalBookings / $limit);
             box-shadow: 0 8px 25px rgba(0, 200, 81, 0.3);
         }
 
-        .btn-outline {
-            background: white;
-            color: var(--gray-600);
-            border: 2px solid var(--gray-300);
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-700);
         }
 
-        .btn-outline:hover {
-            border-color: var(--primary-color);
-            color: var(--primary-color);
+        .btn-secondary:hover {
+            background: var(--gray-300);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107, #fd7e14);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545, #e83e8c);
+            color: white;
         }
 
         .btn-sm {
             padding: 0.5rem 1rem;
-            font-size: 0.9rem;
+            font-size: 0.875rem;
         }
 
-        /* Content Card */
-        .content-card {
+        /* Table */
+        .table-container {
             background: white;
             border-radius: var(--border-radius-lg);
             box-shadow: var(--shadow);
             overflow: hidden;
         }
 
-        .card-header {
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--gray-200);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .card-title {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: var(--gray-800);
-        }
-
-        .card-body {
-            padding: 1.5rem 2rem;
-        }
-
-        /* Filters */
-        .filters {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-        }
-
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .filter-group label {
-            font-weight: 600;
-            color: var(--gray-700);
-            font-size: 0.9rem;
-        }
-
-        .filter-group input,
-        .filter-group select {
-            padding: 0.75rem;
-            border: 2px solid var(--gray-300);
-            border-radius: var(--border-radius);
-            font-size: 1rem;
-            transition: var(--transition);
-        }
-
-        .filter-group input:focus,
-        .filter-group select:focus {
-            outline: none;
-            border-color: var(--primary-color);
-        }
-
-        /* Alert Messages */
-        .alert {
-            padding: 1rem;
-            border-radius: var(--border-radius);
-            margin-bottom: 2rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .alert-error {
-            background: #fed7d7;
-            color: #c53030;
-            border: 1px solid #feb2b2;
-        }
-
-        .alert-success {
-            background: #c6f6d5;
-            color: #2f855a;
-            border: 1px solid #9ae6b4;
-        }
-
-        /* Tables */
-        .data-table {
+        .table {
             width: 100%;
             border-collapse: collapse;
         }
 
-        .data-table th,
-        .data-table td {
+        .table th,
+        .table td {
             padding: 1rem;
             text-align: left;
             border-bottom: 1px solid var(--gray-200);
         }
 
-        .data-table th {
-            background: var(--gray-100);
-            font-weight: 600;
-            color: var(--gray-700);
-            font-size: 0.9rem;
+        .table th {
+            background: var(--gray-50);
+            font-weight: 700;
+            color: var(--gray-800);
             text-transform: uppercase;
+            font-size: 0.875rem;
             letter-spacing: 0.5px;
         }
 
-        .data-table tr:hover {
+        .table tbody tr:hover {
             background: var(--gray-50);
         }
 
+        /* Status Badges */
         .status-badge {
             padding: 0.25rem 0.75rem;
             border-radius: 15px;
             font-size: 0.8rem;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .status-pending {
@@ -355,11 +513,6 @@ $totalPages = ceil($totalBookings / $limit);
             color: #155724;
         }
 
-        .status-completed {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-
         .status-cancelled {
             background: #f8d7da;
             color: #721c24;
@@ -370,59 +523,79 @@ $totalPages = ceil($totalBookings / $limit);
             color: #155724;
         }
 
-        .status-failed {
+        .status-unpaid {
             background: #f8d7da;
             color: #721c24;
         }
 
-        /* Pagination */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-top: 2rem;
+        .booking-code {
+            font-family: monospace;
+            background: var(--gray-100);
+            padding: 0.2rem 0.5rem;
+            border-radius: 5px;
+            font-weight: 600;
         }
 
-        .pagination a,
-        .pagination span {
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--gray-300);
-            border-radius: var(--border-radius);
-            text-decoration: none;
-            color: var(--gray-600);
-            transition: var(--transition);
-        }
-
-        .pagination a:hover {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-
-        .pagination .current {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-
-        /* Action Buttons */
-        .action-buttons {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
+        .price {
+            font-weight: 700;
+            color: var(--primary-color);
         }
 
         /* Empty State */
         .empty-state {
             text-align: center;
-            padding: 3rem;
-            color: var(--gray-500);
+            padding: 4rem 2rem;
+            color: var(--gray-600);
         }
 
         .empty-state i {
-            font-size: 3rem;
+            font-size: 4rem;
             margin-bottom: 1rem;
             opacity: 0.5;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: var(--border-radius-lg);
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modal-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--gray-800);
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 1.5rem;
         }
 
         /* Responsive */
@@ -437,17 +610,16 @@ $totalPages = ceil($totalBookings / $limit);
                 padding: 1rem;
             }
 
-            .filters {
-                flex-direction: column;
+            .filter-row {
+                grid-template-columns: 1fr;
             }
 
-            .data-table {
-                font-size: 0.9rem;
+            .stats-grid {
+                grid-template-columns: 1fr;
             }
 
-            .data-table th,
-            .data-table td {
-                padding: 0.75rem 0.5rem;
+            .table-container {
+                overflow-x: auto;
             }
         }
     </style>
@@ -510,172 +682,275 @@ $totalPages = ceil($totalBookings / $limit);
                     <i class="fas fa-calendar-check"></i>
                     Kelola Booking
                 </h1>
-                <div class="header-actions">
-                    <a href="../index.php" class="btn btn-outline">
-                        <i class="fas fa-globe"></i>
-                        Lihat Website
-                    </a>
+            </div>
+
+            <!-- Statistics -->
+            <div class="stats-grid">
+                <div class="stat-card total">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-number"><?php echo number_format($stats['total_bookings']); ?></div>
+                    <div class="stat-label">Total Booking</div>
+                </div>
+
+                <div class="stat-card pending">
+                    <div class="stat-icon">⏳</div>
+                    <div class="stat-number"><?php echo number_format($stats['pending_count']); ?></div>
+                    <div class="stat-label">Pending</div>
+                </div>
+
+                <div class="stat-card confirmed">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-number"><?php echo number_format($stats['confirmed_count']); ?></div>
+                    <div class="stat-label">Dikonfirmasi</div>
+                </div>
+
+                <div class="stat-card cancelled">
+                    <div class="stat-icon">❌</div>
+                    <div class="stat-number"><?php echo number_format($stats['cancelled_count']); ?></div>
+                    <div class="stat-label">Dibatalkan</div>
+                </div>
+
+                <div class="stat-card revenue">
+                    <div class="stat-icon">💰</div>
+                    <div class="stat-number">Rp <?php echo number_format($stats['total_revenue'], 0, ',', '.'); ?></div>
+                    <div class="stat-label">Total Pendapatan</div>
                 </div>
             </div>
 
-            <?php if (!empty($error)): ?>
-                <div class="alert alert-error">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <span><?php echo htmlspecialchars($error); ?></span>
-                </div>
-            <?php endif; ?>
-
-            <?php if (!empty($success)): ?>
-                <div class="alert alert-success">
-                    <i class="fas fa-check-circle"></i>
-                    <span><?php echo htmlspecialchars($success); ?></span>
+            <!-- Message Alert -->
+            <?php if (!empty($message)): ?>
+                <div class="alert <?php echo $messageType; ?>">
+                    <span><?php echo $messageType === 'success' ? '✅' : '⚠️'; ?></span>
+                    <?php echo htmlspecialchars($message); ?>
                 </div>
             <?php endif; ?>
 
             <!-- Filters -->
-            <form method="GET" class="filters">
-                <div class="filter-group">
-                    <label>Cari Booking</label>
-                    <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Kode booking, nama user, atau kos...">
-                </div>
-                <div class="filter-group">
-                    <label>Status</label>
-                    <select name="status">
-                        <option value="">Semua Status</option>
-                        <option value="pending" <?php echo $status === 'pending' ? 'selected' : ''; ?>>Pending</option>
-                        <option value="confirmed" <?php echo $status === 'confirmed' ? 'selected' : ''; ?>>Confirmed</option>
-                        <option value="completed" <?php echo $status === 'completed' ? 'selected' : ''; ?>>Completed</option>
-                        <option value="cancelled" <?php echo $status === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label>&nbsp;</label>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-search"></i>
-                        Filter
-                    </button>
-                </div>
-            </form>
+            <div class="filters">
+                <form method="GET" class="filter-row">
+                    <div class="form-group">
+                        <label class="form-label">Cari Booking</label>
+                        <input type="text" name="search" class="form-control" 
+                               placeholder="Kode booking, nama, email, kos..." 
+                               value="<?php echo htmlspecialchars($search_term); ?>">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select name="status" class="form-control">
+                            <option value="">Semua Status</option>
+                            <option value="pending" <?php echo $status_filter === 'pending' ? 'selected' : ''; ?>>Pending</option>
+                            <option value="confirmed" <?php echo $status_filter === 'confirmed' ? 'selected' : ''; ?>>Dikonfirmasi</option>
+                            <option value="cancelled" <?php echo $status_filter === 'cancelled' ? 'selected' : ''; ?>>Dibatalkan</option>
+                        </select>
+                    </div>
 
-            <!-- Content Card -->
-            <div class="content-card">
-                <div class="card-header">
-                    <h3 class="card-title">Daftar Booking (<?php echo number_format($totalBookings); ?> total)</h3>
-                </div>
-                <div class="card-body">
-                    <?php if (empty($bookings)): ?>
-                        <div class="empty-state">
-                            <i class="fas fa-calendar-times"></i>
-                            <h3>Belum Ada Booking</h3>
-                            <p>Belum ada data booking yang tersedia.</p>
-                        </div>
-                    <?php else: ?>
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Kode Booking</th>
-                                    <th>User</th>
-                                    <th>Kos</th>
-                                    <th>Check-in</th>
-                                    <th>Durasi</th>
-                                    <th>Total</th>
-                                    <th>Status Booking</th>
-                                    <th>Status Bayar</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($bookings as $booking): ?>
-                                <tr>
-                                    <td><strong><?php echo htmlspecialchars($booking['booking_code'] ?? 'N/A'); ?></strong></td>
-                                    <td>
-                                        <div>
-                                            <strong><?php echo htmlspecialchars($booking['user_name'] ?? 'N/A'); ?></strong>
-                                            <div style="font-size: 0.8rem; color: var(--gray-600);">
-                                                <?php echo htmlspecialchars($booking['user_email'] ?? 'N/A'); ?>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td><?php echo htmlspecialchars($booking['kos_name'] ?? 'N/A'); ?></td>
-                                    <td><?php echo isset($booking['check_in_date']) ? date('d/m/Y', strtotime($booking['check_in_date'])) : 'N/A'; ?></td>
-                                    <td><?php echo ($booking['duration_months'] ?? 0); ?> bulan</td>
-                                    <td><strong>Rp <?php echo number_format($booking['total_price'] ?? 0, 0, ',', '.'); ?></strong></td>
-                                    <td>
-                                        <span class="status-badge status-<?php echo $booking['booking_status'] ?? 'pending'; ?>">
-                                            <?php echo ucfirst($booking['booking_status'] ?? 'pending'); ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="status-badge status-<?php echo $booking['payment_status'] ?? 'pending'; ?>">
-                                            <?php echo ucfirst($booking['payment_status'] ?? 'pending'); ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div class="action-buttons">
-                                            <!-- Status Update Form -->
-                                            <form method="POST" style="display: inline;">
-                                                <input type="hidden" name="action" value="update_status">
-                                                <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
-                                                <select name="booking_status" onchange="this.form.submit()" class="btn btn-sm btn-outline">
-                                                    <option value="pending" <?php echo ($booking['booking_status'] ?? '') === 'pending' ? 'selected' : ''; ?>>Pending</option>
-                                                    <option value="confirmed" <?php echo ($booking['booking_status'] ?? '') === 'confirmed' ? 'selected' : ''; ?>>Confirmed</option>
-                                                    <option value="completed" <?php echo ($booking['booking_status'] ?? '') === 'completed' ? 'selected' : ''; ?>>Completed</option>
-                                                    <option value="cancelled" <?php echo ($booking['booking_status'] ?? '') === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
-                                                </select>
-                                                <input type="hidden" name="payment_status" value="<?php echo $booking['payment_status'] ?? 'pending'; ?>">
-                                            </form>
-                                            
-                                            <!-- Payment Status Update -->
-                                            <?php if (($booking['booking_status'] ?? '') === 'pending'): ?>
-                                            <form method="POST" style="display: inline;">
-                                                <input type="hidden" name="action" value="update_status">
-                                                <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
-                                                <input type="hidden" name="booking_status" value="confirmed">
-                                                <input type="hidden" name="payment_status" value="paid">
-                                                <button type="submit" class="btn btn-sm btn-primary" 
-                                                        onclick="return confirm('Konfirmasi pembayaran untuk booking ini?')">
-                                                    <i class="fas fa-check"></i>
-                                                    Konfirmasi Bayar
-                                                </button>
-                                            </form>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                    <div class="form-group">
+                        <label class="form-label">Dari Tanggal</label>
+                        <input type="date" name="date_from" class="form-control" 
+                               value="<?php echo htmlspecialchars($date_from); ?>">
+                    </div>
 
-                        <!-- Pagination -->
-                        <?php if ($totalPages > 1): ?>
-                        <div class="pagination">
-                            <?php if ($page > 1): ?>
-                                <a href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search); ?>&status=<?php echo urlencode($status); ?>">
-                                    <i class="fas fa-chevron-left"></i> Prev
-                                </a>
-                            <?php endif; ?>
-                            
-                            <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
-                                <?php if ($i == $page): ?>
-                                    <span class="current"><?php echo $i; ?></span>
-                                <?php else: ?>
-                                    <a href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&status=<?php echo urlencode($status); ?>">
-                                        <?php echo $i; ?>
-                                    </a>
-                                <?php endif; ?>
-                            <?php endfor; ?>
-                            
-                            <?php if ($page < $totalPages): ?>
-                                <a href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search); ?>&status=<?php echo urlencode($status); ?>">
-                                    Next <i class="fas fa-chevron-right"></i>
-                                </a>
-                            <?php endif; ?>
-                        </div>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                </div>
+                    <div class="form-group">
+                        <label class="form-label">Sampai Tanggal</label>
+                        <input type="date" name="date_to" class="form-control" 
+                               value="<?php echo htmlspecialchars($date_to); ?>">
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i>
+                            Filter
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Booking Table -->
+            <div class="table-container">
+                <?php if (empty($bookings)): ?>
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-check"></i>
+                        <h3>Tidak ada booking ditemukan</h3>
+                        <p>Belum ada booking yang sesuai dengan filter yang dipilih.</p>
+                    </div>
+                <?php else: ?>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Kode Booking</th>
+                                <th>Pelanggan</th>
+                                <th>Kos</th>
+                                <th>Check-in</th>
+                                <th>Durasi</th>
+                                <th>Total Harga</th>
+                                <th>Status Booking</th>
+                                <th>Status Pembayaran</th>
+                                <th>Tanggal Booking</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($bookings as $booking): ?>
+                            <tr>
+                                <td>
+                                    <span class="booking-code"><?php echo htmlspecialchars($booking['booking_code']); ?></span>
+                                </td>
+                                <td>
+                                    <strong><?php echo htmlspecialchars($booking['full_name']); ?></strong><br>
+                                    <small><?php echo htmlspecialchars($booking['email']); ?></small><br>
+                                    <small><?php echo htmlspecialchars($booking['phone']); ?></small>
+                                </td>
+                                <td>
+                                    <strong><?php echo htmlspecialchars($booking['kos_name']); ?></strong><br>
+                                    <small><?php echo htmlspecialchars($booking['kos_address']); ?></small>
+                                </td>
+                                <td><?php echo date('d/m/Y', strtotime($booking['check_in_date'])); ?></td>
+                                <td><?php echo $booking['duration_months']; ?> bulan</td>
+                                <td>
+                                    <span class="price">Rp <?php echo number_format($booking['total_price'], 0, ',', '.'); ?></span>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-<?php echo $booking['booking_status']; ?>">
+                                        <?php echo ucfirst($booking['booking_status']); ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-<?php echo $booking['payment_status'] ?? 'unpaid'; ?>">
+                                        <?php echo ucfirst($booking['payment_status'] ?? 'unpaid'); ?>
+                                    </span>
+                                </td>
+                                <td><?php echo date('d/m/Y H:i', strtotime($booking['created_at'])); ?></td>
+                                <td>
+                                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                        <button type="button" class="btn btn-warning btn-sm" 
+                                                onclick="openUpdateModal(<?php echo $booking['id']; ?>, '<?php echo $booking['booking_status']; ?>', '<?php echo $booking['payment_status'] ?? 'unpaid'; ?>')">
+                                            <i class="fas fa-edit"></i>
+                                            Edit
+                                        </button>
+                                        <button type="button" class="btn btn-danger btn-sm" 
+                                                onclick="openDeleteModal(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
+                                            <i class="fas fa-trash"></i>
+                                            Hapus
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
             </div>
         </main>
     </div>
+
+    <!-- Update Modal -->
+    <div id="updateModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <i class="fas fa-edit"></i>
+                    Update Status Booking
+                </h3>
+            </div>
+            <form method="POST" id="updateForm">
+                <input type="hidden" name="booking_id" id="updateBookingId">
+
+                <div class="form-group">
+                    <label for="updateBookingStatus" class="form-label">Status Booking</label>
+                    <select name="booking_status" id="updateBookingStatus" class="form-control" required>
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Dikonfirmasi</option>
+                        <option value="cancelled">Dibatalkan</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="updatePaymentStatus" class="form-label">Status Pembayaran</label>
+                    <select name="payment_status" id="updatePaymentStatus" class="form-control">
+                        <option value="unpaid">Belum Dibayar</option>
+                        <option value="paid">Sudah Dibayar</option>
+                        <option value="refunded">Refund</option>
+                    </select>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('updateModal')">
+                        <i class="fas fa-times"></i>
+                        Batal
+                    </button>
+                    <button type="submit" name="update_booking" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Update Status
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <i class="fas fa-trash"></i>
+                    Hapus Booking
+                </h3>
+            </div>
+            <p>Apakah Anda yakin ingin menghapus booking <strong id="deleteBookingCode"></strong>?</p>
+            <p><small>Tindakan ini tidak dapat dibatalkan.</small></p>
+
+            <form method="POST" id="deleteForm">
+                <input type="hidden" name="booking_id" id="deleteBookingId">
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('deleteModal')">
+                        <i class="fas fa-times"></i>
+                        Batal
+                    </button>
+                    <button type="submit" name="delete_booking" class="btn btn-danger">
+                        <i class="fas fa-trash"></i>
+                        Hapus Booking
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openUpdateModal(bookingId, bookingStatus, paymentStatus) {
+            document.getElementById('updateBookingId').value = bookingId;
+            document.getElementById('updateBookingStatus').value = bookingStatus;
+            document.getElementById('updatePaymentStatus').value = paymentStatus;
+            document.getElementById('updateModal').classList.add('show');
+        }
+
+        function openDeleteModal(bookingId, bookingCode) {
+            document.getElementById('deleteBookingId').value = bookingId;
+            document.getElementById('deleteBookingCode').textContent = bookingCode;
+            document.getElementById('deleteModal').classList.add('show');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('show');
+            }
+        });
+
+        // Escape key to close modal
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const openModal = document.querySelector('.modal.show');
+                if (openModal) {
+                    openModal.classList.remove('show');
+                }
+            }
+        });
+    </script>
 </body>
 </html>

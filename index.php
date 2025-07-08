@@ -15,14 +15,12 @@ try {
 function getFeaturedKos($pdo, $limit = 8) {
     $sql = "SELECT k.*, 
                    l.city, l.district,
-                   u.name as owner_name,
                    (SELECT image_url FROM kos_images WHERE kos_id = k.id AND is_primary = 1 LIMIT 1) as primary_image,
                    (SELECT COUNT(*) FROM reviews WHERE kos_id = k.id) as review_count,
                    (SELECT AVG(rating) FROM reviews WHERE kos_id = k.id) as avg_rating,
                    GROUP_CONCAT(DISTINCT f.name ORDER BY f.name SEPARATOR ', ') as facilities
             FROM kos k
             LEFT JOIN locations l ON k.location_id = l.id
-            LEFT JOIN users u ON k.owner_id = u.id
             LEFT JOIN kos_facilities kf ON k.id = kf.kos_id AND kf.is_available = 1
             LEFT JOIN facilities f ON kf.facility_id = f.id
             WHERE k.status = 'published' AND k.is_available = 1
@@ -36,15 +34,21 @@ function getFeaturedKos($pdo, $limit = 8) {
 }
 
 // Get testimonials
-function getTestimonials($pdo, $limit = 6) {
-    $sql = "SELECT * FROM testimonials
-            ORDER BY created_at DESC 
+function getTestimonials(PDO $pdo, int $limit = 6): array {
+    $sql = "SELECT 
+                t.*, 
+                k.name AS kos_name
+            FROM testimonials t
+            LEFT JOIN kos k ON t.kos_id = k.id
+            ORDER BY t.created_at DESC
             LIMIT ?";
-    
+
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$limit]);
+    $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+    $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
 
 // Get statistics
 function getStatistics($pdo) {
@@ -84,11 +88,10 @@ if (!empty($searchLocation)) {
                    GROUP_CONCAT(DISTINCT f.name ORDER BY f.name SEPARATOR ', ') as facilities
             FROM kos k
             LEFT JOIN locations l ON k.location_id = l.id
-            LEFT JOIN users u ON k.owner_id = u.id
             LEFT JOIN kos_facilities kf ON k.id = kf.kos_id AND kf.is_available = 1
             LEFT JOIN facilities f ON kf.facility_id = f.id
             WHERE k.status = 'published' AND k.is_available = 1
-            AND (k.name LIKE ? OR k.address LIKE ? OR l.city LIKE ? OR l.district LIKE ?)
+              AND (k.name LIKE ? OR k.address LIKE ? OR l.city LIKE ? OR l.district LIKE ?)
             GROUP BY k.id
             ORDER BY k.is_featured DESC, k.view_count DESC";
     
@@ -1560,14 +1563,17 @@ if (!empty($searchLocation)) {
                 <?php foreach ($featuredKos as $index => $kos): ?>
                     <div class="kos-card fade-in" style="animation-delay: <?= $index * 0.1 ?>s" onclick="window.location.href='kos-detail.php?id=<?php echo $kos['id']; ?>'">
                         <div class="kos-image">
-                            <img src="<?php echo $kos['primary_image'] ?: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop'; ?>" 
-                                 alt="<?php echo htmlspecialchars($kos['name']); ?>" 
-                                 loading="lazy">
-                            <div class="kos-badge"><?php echo htmlspecialchars(ucfirst(str_replace('-', '/', $kos['type']))); ?></div>
-                            <button class="favorite-btn" onclick="event.stopPropagation(); toggleFavorite(<?php echo $kos['id']; ?>)">
-                                <i class="fas fa-heart"></i>
-                            </button>
-                        </div>
+                        <?php if (!empty($kos['primary_image'])): ?>
+                            <img src="uploads/<?= htmlspecialchars($kos['primary_image']) ?>" alt="<?= htmlspecialchars($kos['name']) ?>">
+                        <?php else: ?>
+                            <img src="https://via.placeholder.com/400x250?text=No+Image" alt="No Image">
+                        <?php endif; ?>
+
+                        <button class="favorite-btn" onclick="event.stopPropagation(); toggleFavorite(<?php echo $kos['id']; ?>)">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                    </div>
+
                         
                         <div class="kos-content">
                             <h3 class="kos-title"><?php echo htmlspecialchars($kos['name']); ?></h3>

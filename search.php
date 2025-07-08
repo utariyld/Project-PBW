@@ -76,6 +76,27 @@ switch ($sortBy) {
         usort($filteredKos, function($a, $b) { return strtotime($b['created_at']) - strtotime($a['created_at']); });
         break;
 }
+
+if (!empty($searchLocation)) {
+    $sql = "SELECT k.*, 
+                   l.city, l.district,
+                   (SELECT image_url FROM kos_images WHERE kos_id = k.id AND is_primary = 1 LIMIT 1) as primary_image,
+                   (SELECT AVG(rating) FROM reviews WHERE kos_id = k.id) as avg_rating,
+                   GROUP_CONCAT(DISTINCT f.name ORDER BY f.name SEPARATOR ', ') as facilities
+            FROM kos k
+            LEFT JOIN locations l ON k.location_id = l.id
+            LEFT JOIN kos_facilities kf ON k.id = kf.kos_id AND kf.is_available = 1
+            LEFT JOIN facilities f ON kf.facility_id = f.id
+            WHERE k.status = 'published' AND k.is_available = 1
+            AND (k.name LIKE ? OR k.address LIKE ? OR l.city LIKE ? OR l.district LIKE ?)
+            GROUP BY k.id
+            ORDER BY k.is_featured DESC, k.view_count DESC";
+
+    $searchTerm = "%{$searchLocation}%";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$searchTerm, $searchTerm, $searchTerm, $searchTerm]);
+    $featuredKos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 ?>
 
 <!DOCTYPE html>
@@ -84,6 +105,8 @@ switch ($sortBy) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pencarian Kos - TemanKosan</title>
+    <!-- Load CSS files -->
+    <link rel="stylesheet" href="assets/css/live-search.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
         
@@ -672,11 +695,19 @@ switch ($sortBy) {
                 <!-- Search Filters -->
                 <div class="search-filters">
                     <form method="GET" action="search.php" id="searchForm">
-                        <!-- Location Filter -->
+                        <!-- Location Filter with Live Search -->
                         <div class="filter-section">
                             <h3 class="filter-title">📍 Lokasi</h3>
                             <div class="form-group">
-                                <input type="text" name="location" value="<?php echo htmlspecialchars($searchLocation); ?>" placeholder="Masukkan kota atau daerah...">
+                                <div class="live-search-wrapper">
+                                    <input type="text" 
+                                           name="location" 
+                                           id="locationSearch"
+                                           value="<?php echo htmlspecialchars($searchLocation); ?>" 
+                                           placeholder="Masukkan kota atau daerah..." 
+                                           autocomplete="off">
+                                    <div id="liveSearchResults" class="live-search-results"></div>
+                                </div>
                             </div>
                         </div>
 
@@ -766,11 +797,11 @@ switch ($sortBy) {
                             <?php foreach ($filteredKos as $kos): ?>
                                 <div class="kos-card" onclick="window.location.href='kos-detail.php?id=<?php echo $kos['id']; ?>'">
                                     <div class="kos-image">
-                                        <img src="<?php echo htmlspecialchars($kos['image']); ?>" alt="<?php echo htmlspecialchars($kos['name']); ?>">
-                                        <div class="kos-badge"><?php echo htmlspecialchars(ucfirst(str_replace('-', '/', $kos['type']))); ?></div>
-                                        <button class="favorite-btn" onclick="event.stopPropagation(); toggleFavorite(<?php echo $kos['id']; ?>)">
-                                            ❤️
-                                        </button>
+                                        <?php if (!empty($kos['image'])): ?>
+                                            <img src="uploads/<?= htmlspecialchars($kos['image']) ?>" alt="<?= htmlspecialchars($kos['name']) ?>">
+                                        <?php else: ?>
+                                            <img src="https://via.placeholder.com/400x250?text=No+Image" alt="No Image">
+                                        <?php endif; ?>
                                     </div>
                                     <div class="kos-content">
                                         <h3 class="kos-title"><?php echo htmlspecialchars($kos['name']); ?></h3>
@@ -824,65 +855,94 @@ switch ($sortBy) {
         </div>
     </main>
 
-    <!-- Panggil file eksternal JavaScript -->
-<script src="php11F_suggestion.js"></script>
+    <!-- Load JavaScript files -->
+    <script src="assets/js/live-search.js"></script>
 
-<script>
-    // Toggle favorite function
-    function toggleFavorite(kosId) {
-        <?php if (isset($_SESSION['user'])): ?>
-            // Tambahkan logika untuk menambah/menghapus favorit
-            console.log('Toggle favorite for kos:', kosId);
-        <?php else: ?>
-            alert('Silakan login terlebih dahulu untuk menambah favorit');
-            window.location.href = 'login.php';
-        <?php endif; ?>
-    }
+    <script>
+        // Initialize live search when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize live search with custom options
+            const liveSearch = new LiveSearch('#locationSearch', '#liveSearchResults', {
+                minLength: 2,
+                debounceTime: 300,
+                maxResults: 8,
+                apiUrl: 'api/live-search.php'
+            });
 
-    // Reset filter pencarian
-    function resetFilters() {
-        window.location.href = 'search.php';
-    }
-
-    // Update sorting berdasarkan nilai pilihan
-    function updateSort(sortValue) {
-        const url = new URL(window.location);
-        url.searchParams.set('sort', sortValue);
-        window.location.href = url.toString();
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        // Auto-submit form saat checkbox fasilitas diubah (opsional)
-        const checkboxes = document.querySelectorAll('input[name="facilities[]"]');
-        checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                // document.getElementById('searchForm').submit(); // aktifkan kalau mau auto-submit
+            // Handle form submission when selecting from live search results
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.search-result-item')) {
+                    const resultItem = e.target.closest('.search-result-item');
+                    const locationInput = document.getElementById('locationSearch');
+                    const title = resultItem.querySelector('.result-title').textContent;
+                    const location = resultItem.querySelector('.result-location').textContent.replace('📍 ', '');
+                    
+                    // Set the input value to the selected location
+                    locationInput.value = location;
+                    
+                    // Hide the results
+                    document.getElementById('liveSearchResults').style.display = 'none';
+                }
             });
         });
 
-        // Tambahkan animasi ke kartu kosan
-        const cards = document.querySelectorAll('.kos-card');
-        cards.forEach((card, index) => {
-            card.style.animationDelay = `${index * 0.1}s`;
-            card.style.animation = 'fadeInUp 0.6s ease-out forwards';
-        });
-    });
-
-    // Tambahkan animasi CSS fadeInUp ke halaman
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        // Toggle favorite function
+        function toggleFavorite(kosId) {
+            <?php if (isset($_SESSION['user'])): ?>
+                // Add logic to add/remove favorite
+                console.log('Toggle favorite for kos:', kosId);
+                // You can implement AJAX call here to update favorites
+            <?php else: ?>
+                alert('Silakan login terlebih dahulu untuk menambah favorit');
+                window.location.href = 'login.php';
+            <?php endif; ?>
         }
-    `;
-    document.head.appendChild(style);
-</script>
+
+        // Reset filter function
+        function resetFilters() {
+            window.location.href = 'search.php';
+        }
+
+        // Update sorting function
+        function updateSort(sortValue) {
+            const url = new URL(window.location);
+            url.searchParams.set('sort', sortValue);
+            window.location.href = url.toString();
+        }
+
+        // Auto-submit form when checkbox facilities are changed (optional)
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkboxes = document.querySelectorAll('input[name="facilities[]"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    // Uncomment the line below if you want auto-submit on facility change
+                    // document.getElementById('searchForm').submit();
+                });
+            });
+
+            // Add animation to kos cards
+            const cards = document.querySelectorAll('.kos-card');
+            cards.forEach((card, index) => {
+                card.style.animationDelay = `${index * 0.1}s`;
+                card.style.animation = 'fadeInUp 0.6s ease-out forwards';
+            });
+        });
+
+        // Add fadeInUp animation CSS
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
 </body>
 </html>

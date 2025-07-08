@@ -9,6 +9,37 @@ require_admin();
 
 // Get dashboard statistics
 $stats = get_dashboard_stats();
+
+// Get recent bookings with proper database structure
+try {
+    $db = getConnection();
+    $recent_bookings_sql = "SELECT 
+                                b.id,
+                                b.booking_code,
+                                b.full_name,
+                                b.email,
+                                b.phone,
+                                b.check_in_date,
+                                b.duration_months,
+                                b.total_price,
+                                b.booking_status,
+                                b.payment_status,
+                                b.created_at,
+                                COALESCE(k.name, 'Kos tidak ditemukan') AS kos_name,
+                                COALESCE(k.address, '') AS kos_address,
+                                COALESCE(u.name, b.full_name) AS user_name
+                            FROM bookings b
+                            LEFT JOIN kos k ON b.kos_id = k.id
+                            LEFT JOIN users u ON b.user_id = u.id
+                            ORDER BY b.created_at DESC
+                            LIMIT 5";
+    
+    $stmt = $db->prepare($recent_bookings_sql);
+    $stmt->execute();
+    $recent_bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $recent_bookings = [];
+}
 ?>
 
 <!DOCTYPE html>
@@ -40,7 +71,7 @@ $stats = get_dashboard_stats();
             --gray-900: #212529;
             --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
             --shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-            --shadow-lg: 1rem 3rem rgba(0, 0, 0, 0.175);
+            --shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.175);
             --border-radius: 0.75rem;
             --border-radius-lg: 1rem;
             --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -288,7 +319,7 @@ $stats = get_dashboard_stats();
         .booking-item {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             padding: 1rem 0;
             border-bottom: 1px solid var(--gray-200);
         }
@@ -306,6 +337,24 @@ $stats = get_dashboard_stats();
         .booking-info p {
             color: var(--gray-600);
             font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .booking-code {
+            font-family: monospace;
+            background: var(--gray-100);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .booking-meta {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: flex-end;
         }
 
         .status-badge {
@@ -313,6 +362,8 @@ $stats = get_dashboard_stats();
             border-radius: 15px;
             font-size: 0.8rem;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .status-pending {
@@ -333,6 +384,17 @@ $stats = get_dashboard_stats();
         .status-cancelled {
             background: #f8d7da;
             color: #721c24;
+        }
+
+        .price {
+            font-weight: 700;
+            color: var(--primary-color);
+            font-size: 0.9rem;
+        }
+
+        .booking-date {
+            font-size: 0.8rem;
+            color: var(--gray-500);
         }
 
         /* Quick Actions */
@@ -369,6 +431,19 @@ $stats = get_dashboard_stats();
             color: var(--primary-color);
         }
 
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--gray-600);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .admin-sidebar {
@@ -387,6 +462,17 @@ $stats = get_dashboard_stats();
 
             .stats-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .booking-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .booking-meta {
+                align-items: flex-start;
+                text-align: left;
             }
         }
     </style>
@@ -505,29 +591,47 @@ $stats = get_dashboard_stats();
                 <!-- Recent Bookings -->
                 <div class="content-card">
                     <div class="card-header">
-                        <h3 class="card-title">Booking Terbaru</h3>
+                        <h3 class="card-title">
+                            <i class="fas fa-calendar-check"></i>
+                            Booking Terbaru
+                        </h3>
                         <a href="manage-bookings.php" class="btn btn-outline">Lihat Semua</a>
                     </div>
                     <div class="card-body">
-                        <?php if (empty($stats['recent_bookings'])): ?>
-                            <p style="text-align: center; color: var(--gray-600); padding: 2rem;">
-                                Belum ada booking
-                            </p>
+                        <?php if (empty($recent_bookings)): ?>
+                            <div class="empty-state">
+                                <i class="fas fa-calendar-times"></i>
+                                <h4>Belum ada booking</h4>
+                                <p>Booking terbaru akan ditampilkan di sini</p>
+                            </div>
                         <?php else: ?>
-                            <?php foreach ($stats['recent_bookings'] as $booking): ?>
+                            <?php foreach ($recent_bookings as $booking): ?>
                             <div class="booking-item">
                                 <div class="booking-info">
-                                    <h4><?php echo htmlspecialchars($booking['user_name']); ?></h4>
-                                    <p><?php echo htmlspecialchars($booking['kos_name']); ?></p>
-                                    <p style="font-size: 0.8rem;"><?php echo format_date($booking['created_at']); ?></p>
+                                    <h4><?php echo htmlspecialchars($booking['full_name']); ?></h4>
+                                    <p><strong><?php echo htmlspecialchars($booking['kos_name']); ?></strong></p>
+                                    <p><?php echo htmlspecialchars($booking['kos_address']); ?></p>
+                                    <span class="booking-code"><?php echo htmlspecialchars($booking['booking_code']); ?></span>
+                                    <p style="font-size: 0.8rem; margin-top: 0.5rem;">
+                                        Check-in: <?php echo date('d M Y', strtotime($booking['check_in_date'])); ?> 
+                                        (<?php echo $booking['duration_months']; ?> bulan)
+                                    </p>
                                 </div>
-                                <div>
+                                <div class="booking-meta">
                                     <span class="status-badge status-<?php echo $booking['booking_status']; ?>">
                                         <?php echo ucfirst($booking['booking_status']); ?>
                                     </span>
-                                    <p style="font-weight: 600; margin-top: 0.5rem;">
-                                        <?php echo format_currency($booking['total_price']); ?>
-                                    </p>
+                                    <div class="price">
+                                        Rp <?php echo number_format($booking['total_price'], 0, ',', '.'); ?>
+                                    </div>
+                                    <div class="booking-date">
+                                        <?php echo date('d M Y H:i', strtotime($booking['created_at'])); ?>
+                                    </div>
+                                    <?php if ($booking['payment_status']): ?>
+                                        <span class="status-badge status-<?php echo $booking['payment_status']; ?>" style="font-size: 0.7rem;">
+                                            <?php echo ucfirst($booking['payment_status']); ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                             <?php endforeach; ?>
@@ -538,7 +642,10 @@ $stats = get_dashboard_stats();
                 <!-- Quick Actions -->
                 <div class="content-card">
                     <div class="card-header">
-                        <h3 class="card-title">Quick Actions</h3>
+                        <h3 class="card-title">
+                            <i class="fas fa-bolt"></i>
+                            Quick Actions
+                        </h3>
                     </div>
                     <div class="card-body">
                         <div class="quick-actions">

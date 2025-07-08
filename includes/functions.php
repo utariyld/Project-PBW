@@ -124,19 +124,19 @@ function create_user($name, $email, $phone, $password, $role = 'member') {
     $pdo = getConnection();
     if (!$pdo) return false;
     
-    $password_hash = password_hash($password, PASSWORD_DEFAULT);
+    $password = password_hash($password, PASSWORD_DEFAULT);
     $verification_token = bin2hex(random_bytes(32));
     
     $stmt = $pdo->prepare("
-        INSERT INTO users (name, email, phone, password_hash, role, verification_token) 
+        INSERT INTO users (name, email, phone, password, role, email_verified_at) 
         VALUES (?, ?, ?, ?, ?, ?)
     ");
     
-    if ($stmt->execute([$name, $email, $phone, $password_hash, $role, $verification_token])) {
+    if ($stmt->execute([$name, $email, $phone, $password, $role, $verification_token])) {
         $user_id = $pdo->lastInsertId();
         
         // For demo purposes, auto-verify the user
-        $verify_stmt = $pdo->prepare("UPDATE users SET email_verified = 1 WHERE id = ?");
+        $verify_stmt = $pdo->prepare("UPDATE users SET email_verified_at = 1 WHERE id = ?");
         $verify_stmt->execute([$user_id]);
         
         return $user_id;

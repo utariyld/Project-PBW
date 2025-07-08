@@ -157,24 +157,17 @@ class Booking extends BaseModel {
     /**
      * Get booking statistics
      */
-    public function getBookingStats($ownerId = null) {
-        $sql = "SELECT 
-                    booking_status,
-                    COUNT(*) as count,
-                    SUM(total_amount) as total_revenue
-                FROM {$this->table} b";
-        
-        $params = [];
-        
-        if ($ownerId) {
-            $sql .= " JOIN kos k ON b.kos_id = k.id WHERE k.owner_id = ?";
-            $params[] = $ownerId;
-        }
-        
-        $sql .= " GROUP BY booking_status";
-        
-        return $this->db->fetchAll($sql, $params);
+    public function getBookingStats() {
+    $sql = "SELECT 
+                booking_status,
+                COUNT(*) as count,
+                SUM(total_amount) as total_revenue
+            FROM {$this->table}
+            GROUP BY booking_status";
+
+    return $this->db->fetchAll($sql);
     }
+
 
     /**
      * Generate unique booking code

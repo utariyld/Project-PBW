@@ -17,14 +17,12 @@ if (isset($_GET['id'])) {
 
     $sql = "SELECT k.*, 
                    l.city, l.district, l.province, 
-                   u.name AS owner_name, u.phone AS owner_phone, u.email AS owner_email,
                    (SELECT GROUP_CONCAT(image_url) FROM kos_images WHERE kos_id = k.id ORDER BY is_primary DESC) AS images,
                    (SELECT COUNT(*) FROM reviews WHERE kos_id = k.id) AS review_count,
                    (SELECT AVG(rating) FROM reviews WHERE kos_id = k.id) AS avg_rating,
                    GROUP_CONCAT(DISTINCT f.name ORDER BY f.name SEPARATOR ', ') AS facilities
             FROM kos k
             LEFT JOIN locations l ON k.location_id = l.id
-            LEFT JOIN users u ON k.owner_id = u.id
             LEFT JOIN kos_facilities kf ON k.id = kf.kos_id AND kf.is_available = 1
             LEFT JOIN facilities f ON kf.facility_id = f.id
             WHERE k.id = ? AND k.status = 'published' AND k.is_available = 1
@@ -40,7 +38,6 @@ if (isset($_GET['id'])) {
         exit();
     }
 
-    
     // Convert comma-separated images string to an array
     if ($kos['images']) {
         $kos['images_array'] = explode(',', $kos['images']);
@@ -365,6 +362,48 @@ if (isset($_GET['id'])) {
             color: var(--gray-700);
         }
 
+                .form-booking {
+            background-color: var(--primary-color, #007BFF); /* fallback ke biru */
+            color: #fff;
+            padding: 1.5rem 2rem;
+            border-radius: var(--border-radius, 8px);
+            box-shadow: var(--box-shadow, 0 4px 12px rgba(0, 0, 0, 0.1));
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            max-width: 500px;
+            margin: 2rem auto;
+        }
+
+        .form-booking h3 {
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            color: #fff;
+        }
+
+        .form-booking .btn-booking {
+            background: linear-gradient(135deg, var(--secondary-color, #28a745), var(--accent-color, #20c997));
+            color: var(--white, #fff);
+            padding: 1rem 2.5rem;
+            border: none;
+            border-radius: var(--border-radius, 8px);
+            font-weight: 700;
+            font-size: 1.1rem;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            display: inline-block;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-booking .btn-booking:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
         /* Footer */
         .footer {
             background-color: var(--gray-800);
@@ -471,10 +510,6 @@ if (isset($_GET['id'])) {
                             <i class="fas fa-map-marker-alt"></i>
                             <span> <?php echo htmlspecialchars($kos['address'] . ', ' . $kos['district'] . ', ' . $kos['city'] . ', ' . $kos['province']); ?></span>
                         </div>
-                        <div class="owner">
-                            <i class="fas fa-user"></i>
-                            <span>Oleh: <?php echo htmlspecialchars($kos['owner_name']); ?></span>
-                        </div>
                         <div class="description">
                             <h3>Deskripsi</h3>
                             <p><?php echo nl2br(htmlspecialchars($kos['description'])); ?></p>
@@ -494,15 +529,9 @@ if (isset($_GET['id'])) {
                 </div>
 
                 <div class="sidebar">
-                    <div class="contact-owner">
-                        <h3>Hubungi Pemilik</h3>
-                        <div class="owner-info">
-                            <p><strong><?php echo htmlspecialchars($kos['owner_name']); ?></strong></p>
-                            <p>Telepon: <?php echo htmlspecialchars($kos['owner_phone']); ?></p>
-                            <p>Email: <?php echo htmlspecialchars($kos['owner_email']); ?></p>
-                        </div>
-                        <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $kos['owner_phone']); ?>" target="_blank" class="btn btn-primary btn-contact">
-                            <i class="fab fa-whatsapp"></i> Chat via WhatsApp
+                    <div class="form-booking">
+                        <a href="booking.php?id=<?php echo $kos['id']; ?>" class="btn-booking">
+                            <h3>Booking Sekarang</h3>
                         </a>
                     </div>
                 </div>
